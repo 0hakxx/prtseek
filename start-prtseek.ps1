@@ -31,6 +31,17 @@ function Get-BinaryHash([string]$path) {
     try { [BitConverter]::ToString($algorithm.ComputeHash($stream)).Replace('-', '').ToLowerInvariant() }
     finally { $stream.Dispose(); $algorithm.Dispose() }
 }
+function Copy-InstalledFile([string]$from, [string]$to) {
+    # Windows can retain an executable mapping briefly after process exit
+    # (including AV inspection). Retry a bounded time without hiding failure.
+    for ($retry = 0; $retry -lt 40; $retry++) {
+        try { [IO.File]::Copy($from, $to, $true); return }
+        catch {
+            if ($retry -eq 39) { throw }
+            Start-Sleep -Milliseconds 250
+        }
+    }
+}
 function Check-Ports($instances) {
     $owners = @($instances | ForEach-Object { [int]$_.ProcessId })
     $listeners = @(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object { $_.LocalPort -eq $Port -or ($ProxyPort -ne 0 -and $_.LocalPort -eq $ProxyPort) })
@@ -87,8 +98,8 @@ try {
     }
     if ($needsBuild) {
         if (Test-Path -LiteralPath $binary) { Copy-Item -LiteralPath $binary -Destination "$binary.previous" -Force }
-        Copy-Item -LiteralPath $candidate -Destination $binary -Force
-        Copy-Item -LiteralPath "$candidate.build.json" -Destination "$binary.build.json" -Force
+        Copy-InstalledFile $candidate $binary
+        Copy-InstalledFile "$candidate.build.json" "$binary.build.json"
     }
     New-Item -ItemType Directory -Force -Path $runDir | Out-Null
     $arguments = @('-addr', "127.0.0.1:$Port", '-proxy', "127.0.0.1:$ProxyPort", '-data', ('"' + (Join-Path $root 'data') + '"'))

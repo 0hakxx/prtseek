@@ -4,6 +4,7 @@ The separate build-state tests cover real source hashing. This fixture avoids a
 full npm/Go rebuild per launcher scenario, while running the real application.
 """
 import hashlib
+import ctypes
 import json
 import os
 from pathlib import Path
@@ -26,7 +27,9 @@ def main():
     binary = Path(sys.argv[1]).resolve(strict=True)
     build = json.loads((ROOT / 'server/webui/dist/build-info.json').read_text())
     with tempfile.TemporaryDirectory(prefix='prtseek launcher ') as temporary:
-        root = Path(temporary)
+        # Windows runners may expose TEMP through RUNNER~1, while CIM returns
+        # the long executable path. Compare canonical filesystem paths.
+        root = Path(temporary).resolve()
         (root / '.dev').mkdir()
         (root / 'scripts').mkdir()
         for name in ['start-prtseek.ps1', 'start-prtseek.cmd', 'update-prtseek.cmd']:
@@ -58,12 +61,18 @@ if($LASTEXITCODE -ne 0) {throw 'fixture metadata failed'}
         port = sock.getsockname()[1]
         sock.close()
 
-        def launch(*extra, ok=True):
+        def launch(*extra, ok=True, short_path=False):
             # A background Windows child can inherit a pipe handle even when
             # its own stdout is redirected. Use files so communicate() does
             # not wait for a healthy long-lived service to close that handle.
+            script = str(root/'start-prtseek.ps1')
+            if short_path:
+                buffer = ctypes.create_unicode_buffer(32768)
+                length = ctypes.windll.kernel32.GetShortPathNameW(script, buffer, len(buffer))
+                assert 0 < length < len(buffer), 'cannot resolve Windows short path'
+                script = buffer.value
             with (root/'launcher-test.log').open('w') as log:
-                result = subprocess.run([PS, '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', str(root/'start-prtseek.ps1'), '-NoBrowser', '-Port', str(port), '-ProxyPort', '0', *extra], env=env, stdout=log, stderr=subprocess.STDOUT, timeout=90)
+                result = subprocess.run([PS, '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script, '-NoBrowser', '-Port', str(port), '-ProxyPort', '0', *extra], env=env, stdout=log, stderr=subprocess.STDOUT, timeout=90)
             assert (result.returncode == 0) == ok, (root/'launcher-test.log').read_text(errors='replace')
             return result
 
@@ -85,10 +94,10 @@ if($LASTEXITCODE -ne 0) {throw 'fixture metadata failed'}
                 return json.load(response)
 
         try:
-            launch()
+            launch(short_path=True)
             assert health()['build_id'] == build['source_id']
             first = instances()
-            assert len(first) == 1
+            assert len(first) == 1, f'Expected one instance under {root}, got {first}'
             launch()
             assert instances() == first, 'duplicate start created a second process'
             (root/'generation').write_text('2')
@@ -118,7 +127,7 @@ if($LASTEXITCODE -ne 0) {throw 'fixture metadata failed'}
             launch()
             assert health()['ok'] and len(instances()) == 1
             launch()
-            print('PASS: source rebuild, root exe precedence, reuse, stale service refusal, build-failure preservation, explicit update, foreign port, release launch')
+            print('PASS: short-path launch, source rebuild, root exe precedence, reuse, stale service refusal, build-failure preservation, explicit update, foreign port, release launch')
         finally:
             stop()
 
