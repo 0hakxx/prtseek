@@ -23,6 +23,14 @@ function Get-Instances {
 function Get-Health {
     try { Invoke-RestMethod -Uri "$url/api/health" -TimeoutSec 2 -Headers @{'Cache-Control'='no-cache'} } catch { $null }
 }
+function Get-BinaryHash([string]$path) {
+    # Use the .NET API: PS7 can pass a module path to Windows PowerShell 5.1
+    # that prevents the Get-FileHash module from loading.
+    $algorithm = [Security.Cryptography.SHA256]::Create()
+    $stream = [IO.File]::OpenRead($path)
+    try { [BitConverter]::ToString($algorithm.ComputeHash($stream)).Replace('-', '').ToLowerInvariant() }
+    finally { $stream.Dispose(); $algorithm.Dispose() }
+}
 function Check-Ports($instances) {
     $owners = @($instances | ForEach-Object { [int]$_.ProcessId })
     $listeners = @(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object { $_.LocalPort -eq $Port -or ($ProxyPort -ne 0 -and $_.LocalPort -eq $ProxyPort) })
@@ -56,7 +64,7 @@ try {
     $manifest = $null
     if (Test-Path -LiteralPath "$desired.build.json") {
         $manifest = Get-Content -LiteralPath "$desired.build.json" -Raw | ConvertFrom-Json
-        if ((Get-FileHash -LiteralPath $desired -Algorithm SHA256).Hash.ToLowerInvariant() -ne $manifest.binary_sha256) { throw 'Executable checksum does not match its build manifest.' }
+        if ((Get-BinaryHash $desired) -ne $manifest.binary_sha256) { throw 'Executable checksum does not match its build manifest.' }
     }
     if ($instances.Count -gt 0 -and !$needsBuild -and !$Update -and !$Build) {
         $health = Get-Health
