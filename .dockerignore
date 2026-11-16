@@ -1,5 +1,9 @@
 .git
 .dev
+.prtseek-run
+dist
+*.build.json
+*.previous
 web/.npm-cache
 *.db-wal
 *.db-shm

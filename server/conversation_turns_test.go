@@ -18,6 +18,8 @@ import (
 
 func TestCTFTurnLedgerAcrossContinueAndRestart(t *testing.T) {
 	s, c := ctfRegressionServer(t)
+	// This test exercises accounting, not the research completion protocol.
+	c.AgentKey = "writeup"
 	useCTFFixtureModel(t, s, c, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{"id": "fixture", "choices": []any{map[string]any{"message": map[string]any{"role": "assistant", "content": "fixture complete"}, "finish_reason": "stop"}}, "usage": map[string]any{"prompt_tokens": 100, "completion_tokens": 10, "prompt_tokens_details": map[string]any{"cached_tokens": 80}}})
@@ -174,7 +176,7 @@ func TestCTFHTTPObservationAndExperimentThroughChat(t *testing.T) {
 		}
 		calls++
 		if calls == 3 {
-			fixtureReply(w, "observed local fixture; independent reproduction not claimed")
+			fixtureResearchBlocked(w)
 			return
 		}
 		name, args := "WebFetch", map[string]any{"url": page.URL + "/start"}

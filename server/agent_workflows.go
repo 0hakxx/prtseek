@@ -59,6 +59,15 @@ func (s *Server) initAgentWorkflows() error {
 			if err != nil {
 				return err
 			}
+			// New research roles default to four hours. Existing operator budgets
+			// remain authoritative; zero continues to mean no time limit.
+			seconds := 4 * 60 * 60
+			if def.key == "writeup" {
+				seconds = 30 * 60
+			}
+			if err = pg.SetAgentRunSeconds(a.Key, seconds); err != nil {
+				return err
+			}
 		} else if a.Description == "" || a.Description == "CTF 模式专用角色，可编辑提示词与模型配置" || a.Description == "默认 CTF 编组角色；可配置提示词、模型与可见资源。" {
 			if err = pg.UpdateAgentMeta(a.Key, a.Name, def.description); err != nil {
 				return err

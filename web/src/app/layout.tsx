@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import type { Metadata } from "next";
 
 import { PrtsBoot } from "@/components/prts-boot";
+import { BuildUpdateNotice } from "@/components/build-update-notice";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { APP_CONFIG } from "@/config/app-config";
@@ -47,6 +48,7 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
             font={font}
           >
             <PrtsBoot />
+            <BuildUpdateNotice />
             {children}
             <Toaster />
           </PreferencesStoreProvider>

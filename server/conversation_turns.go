@@ -49,6 +49,13 @@ func (s *Server) runMeteredChat(ctx context.Context, ca *agent.ChatAgent, c *db.
 		if runErr != nil || reason != "completed" {
 			state = "failed"
 		}
+		var incomplete *agent.ResearchIncompleteError
+		if errors.As(runErr, &incomplete) {
+			state = incomplete.Status
+			if reason != "incomplete_stream" {
+				reason = incomplete.Status
+			}
+		}
 		if ctx.Err() != nil {
 			state, reason = "cancelled", "cancelled"
 		}

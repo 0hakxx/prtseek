@@ -106,11 +106,7 @@ command -v go >/dev/null 2>&1 || die "未检测到 Go（项目需要 Go 1.26 或
 
 prtseek_GOSUMDB="${prtseek_GOSUMDB:-sum.golang.org}"
 if [ -z "${prtseek_BUILD_VERSION:-}" ]; then
-  if command -v git >/dev/null 2>&1 && git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    prtseek_BUILD_VERSION="$(git describe --tags --always --dirty)"
-  else
-    prtseek_BUILD_VERSION="dev"
-  fi
+  prtseek_BUILD_VERSION="$(tr -d '\r\n' < VERSION)"
 fi
 # Every local build keeps the fork marker so upstream self-update stays disabled.
 # Accept prtseek-v1.3.0, v1.3.0, 1.3.0, or a development revision.
@@ -196,12 +192,14 @@ package_binary() {
   cp "$binary" "$package_root/"
   # 按目标系统携带守护启动脚本；个人构建保留 prtseek 版本标记并禁用上游自更新。
   if [ "$goos" = "windows" ]; then
-    cp start.bat "$package_root/"
+    cp start.bat start-prtseek.cmd start-prtseek.ps1 update-prtseek.cmd "$package_root/"
   else
     cp start.sh "$package_root/"
     chmod +x "$package_root/start.sh"
   fi
   cp -R skills "$package_root/"
+  cp "$binary.build.json" "$package_root/"
+  cp VERSION "$package_root/"
   cp config.example.json "$package_root/"
   if [ -f README.md ]; then cp README.md "$package_root/"; fi
   cp LICENSE "$package_root/"
@@ -246,6 +244,7 @@ build_target() {
     ./cmd/prtseek
 
   compress_binary "$output" "$goos"
+  node scripts/build-state.mjs write "$output"
   if command -v file >/dev/null 2>&1; then file "$output"; fi
   if [ "$prtseek_PACKAGE" = "1" ]; then package_binary "$output" "$goos" "$goarch"; fi
   ok "编译完成：$output"

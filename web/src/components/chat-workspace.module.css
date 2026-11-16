@@ -1,5 +1,7 @@
 .workspace {
   --chat-signal: var(--prts-signal, #18d1ff);
+  /* History, transcript and composer share the same surface in both themes. */
+  --background: var(--card);
   display: flex;
   height: calc(100dvh - var(--dashboard-header-height, 56px));
   min-height: 0;

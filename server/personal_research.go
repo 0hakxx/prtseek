@@ -36,5 +36,18 @@ func (s *Server) personalResearchState(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, 500, "研究记录读取失败："+err.Error())
 		return
 	}
-	writeJSON(w, 200, map[string]any{"enabled": enabled, "version": "1.2.0", "memory": state})
+	run, err := memory.RunState()
+	if err != nil {
+		writeErr(w, 500, "研究运行状态读取失败："+err.Error())
+		return
+	}
+	if run != nil && run.Status == "active" {
+		s.chatMu.Lock()
+		running := s.chatBusy[s.convBusyKey(c.ID)]
+		s.chatMu.Unlock()
+		if !running {
+			run.Status = "interrupted"
+		}
+	}
+	writeJSON(w, 200, map[string]any{"enabled": enabled, "version": "1.2.0", "memory": state, "run": run})
 }

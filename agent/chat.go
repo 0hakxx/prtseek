@@ -160,6 +160,13 @@ func (c *ChatAgent) Chat(ctx context.Context, agentKey, sessionID, message strin
 	// visible skills/MCP and lets the DB tools table filter/override. DefaultTools
 	// have no tools-table rows, so they always pass through.
 	ctf := ctfRoleMethod(agentKey) != ""
+	if ctf && maxDuration > 0 {
+		// One deadline for the whole research run, including delegated work and
+		// automatic continuations. Never reset it at a model's end_turn.
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, maxDuration)
+		defer cancel()
+	}
 	base := actool.DefaultTools()
 	if ctf {
 		// Delegation, not SDK background tasks, owns CTF parallelism. Sleep and
@@ -232,6 +239,10 @@ func (c *ChatAgent) Chat(ctx context.Context, agentKey, sessionID, message strin
 	if err := AttachResearchRuntime(ctx, &opts, c.model, sessionWorkDir, message); err != nil {
 		return "", err
 	}
+	research, err := attachCTFResearch(ctx, &opts, agentKey, message, maxTurns)
+	if err != nil {
+		return "", err
+	}
 	personalSessionOptions(ctx, &opts)
 	if c.completionCheck != nil {
 		opts.Hooks = &completionCheckHooks{HookRunner: opts.Hooks, check: c.completionCheck}
@@ -248,6 +259,10 @@ func (c *ChatAgent) Chat(ctx context.Context, agentKey, sessionID, message strin
 	// re-unlock skill-gated MCPs from prior Skill() calls in the reloaded history so
 	// revealed tools stay callable across the fresh session.
 	seedUnlockFromHistory(s.Messages(), def.UnlockSkill)
+	if research != nil {
+		research.completionCheck = c.completionCheck
+		return captureCTFResearch(ctx, s, research, message, agentKey, emit)
+	}
 	text, reason, err := captureRunSession(ctx, s, message, func(r db.Activity) {
 		if emit != nil {
 			r.Worker = agentKey

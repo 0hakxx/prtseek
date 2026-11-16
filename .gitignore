@@ -20,6 +20,10 @@ web/tsconfig.tsbuildinfo
 web/next-env.d.ts
 .vercel/
 web/public/demo-version.json
+web/public/build-info.json
+*.build.json
+/.prtseek-run/
+*.previous
 *.local
 
 # development tools

@@ -53,6 +53,9 @@ def main():
                     else:
                         raise RuntimeError("Health check timed out")
                     assert b"<html" in request("/chat/").lower(), "Embedded chat page is missing"
+                    health = json.loads(request("/api/health"))
+                    metadata = json.loads(request("/build-info.json"))
+                    assert len(health["build_id"]) == 64 and health["build_id"] == metadata["source_id"]
                     initialized = json.loads(request("/api/auth/status"))["initialized"]
                     assert initialized == bool(attempt), "SQLite state did not survive restart"
                     if not attempt:

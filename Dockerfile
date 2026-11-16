@@ -1,9 +1,9 @@
 FROM node:22-bookworm-slim AS web-build
-WORKDIR /src/web
-COPY web/package*.json ./
-RUN npm ci
-COPY web/ ./
-RUN npm run build:static
+WORKDIR /src
+COPY web/package*.json ./web/
+RUN cd web && npm ci --no-audit --no-fund
+COPY . .
+RUN cd web && npm run build:static
 
 FROM golang:1.26.10-bookworm AS go-build
 WORKDIR /src
@@ -11,7 +11,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 COPY --from=web-build /src/web/out ./server/webui/dist
-RUN CGO_ENABLED=0 go build -trimpath -tags embedui -ldflags="-s -w -X main.version=prtseek-v1.3.2" -o /prtseek ./cmd/prtseek
+RUN CGO_ENABLED=0 go build -trimpath -tags embedui -ldflags="-s -w -X main.version=$(tr -d '\r\n' < VERSION)" -o /prtseek ./cmd/prtseek
 
 FROM python:3.12-slim-bookworm
 

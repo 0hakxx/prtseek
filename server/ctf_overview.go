@@ -38,7 +38,7 @@ func (s *Server) conversationOverview(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	view := ctfOverview{State: "idle", ModelCallLimit: ctfMaxModelCalls, Outcome: s.readCTFOutcome(c.ID)}
+	view := ctfOverview{State: "idle", ModelCallLimit: ctfModelCallLimit(), Outcome: s.readCTFOutcome(c.ID)}
 	_ = s.m.pg.QueryRow(`SELECT state,started_ms,finished_ms,model_calls FROM conversation_executions WHERE conversation_id=$1`, c.ID).Scan(&view.State, &view.StartedMS, &view.FinishedMS, &view.ModelCalls)
 	_ = s.m.pg.QueryRow(`SELECT id,reason,state,started_ms,finished_ms FROM conversation_turns WHERE conversation_id=$1 ORDER BY id DESC LIMIT 1`, c.ID).Scan(&view.TurnID, &view.EndReason, &view.State, &view.StartedMS, &view.FinishedMS)
 	if view.StartedMS > 0 {

@@ -19,9 +19,24 @@ set -u
 cd "$(dirname "$0")" || exit 1
 
 BIN=./prtseek
-if [ ! -x "$BIN" ]; then
-    prtseek_OUTPUT="$PWD/prtseek" bash ./build.sh || exit 1
+mkdir -p .prtseek-run
+if ! mkdir .prtseek-run/lock 2>/dev/null; then
+    echo '[prtseek] Launcher lock exists. Stop the previous launcher before starting/updating. If it crashed, verify it is stopped before removing .prtseek-run/lock.' >&2
+    exit 1
 fi
+echo $$ > .prtseek-run/lock/pid
+trap 'rm -f .prtseek-run/lock/pid; rmdir .prtseek-run/lock' 0
+if [ -f go.mod ]; then
+    command -v node >/dev/null 2>&1 || { echo 'Source checkout requires Node.js and Go.' >&2; exit 1; }
+    if ! node scripts/build-state.mjs check "$BIN"; then
+        prtseek_OUTPUT="$PWD/prtseek-next" bash ./build.sh || exit 1
+        node scripts/build-state.mjs check ./prtseek-next || exit 1
+        if [ -f "$BIN" ]; then cp "$BIN" "$BIN.previous" || exit 1; fi
+        mv ./prtseek-next "$BIN" || exit 1
+        mv ./prtseek-next.build.json "$BIN.build.json" || exit 1
+    fi
+fi
+[ -x "$BIN" ] || { echo 'Release executable is missing or not executable.' >&2; exit 1; }
 
 RESTART_CODE=75
 MAX_DELAY=60

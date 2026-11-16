@@ -4,6 +4,8 @@ package server
 
 import (
 	"bytes"
+	"encoding/json"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -12,6 +14,32 @@ import (
 
 func TestEmbeddedWorkbenchRoutes(t *testing.T) {
 	h := (&Server{}).webuiHandler()
+	if len(WebUIBuildID) != 64 {
+		t.Fatalf("missing embedded build ID: %q", WebUIBuildID)
+	}
+	meta := httptest.NewRecorder()
+	h.ServeHTTP(meta, httptest.NewRequest("GET", "/build-info.json", nil))
+	var info struct {
+		SourceID string `json:"source_id"`
+	}
+	if json.Unmarshal(meta.Body.Bytes(), &info) != nil || info.SourceID != WebUIBuildID || meta.Header().Get("Cache-Control") != "no-store" {
+		t.Fatal("stale/missing build metadata")
+	}
+	assets := 0
+	_ = fs.WalkDir(webuiDist, "webui/dist/_next/static", func(p string, d fs.DirEntry, err error) error {
+		if err == nil && !d.IsDir() && strings.HasSuffix(p, ".js") {
+			w := httptest.NewRecorder()
+			h.ServeHTTP(w, httptest.NewRequest("GET", strings.TrimPrefix(p, "webui/dist"), nil))
+			if w.Code != 200 || !strings.Contains(w.Header().Get("Cache-Control"), "immutable") {
+				t.Errorf("asset cache: %s", p)
+			}
+			assets++
+		}
+		return err
+	})
+	if assets == 0 {
+		t.Fatal("no embedded JS")
+	}
 	for _, route := range []string{"/chat/", "/system/agents/", "/system/llm/", "/system/tools/", "/settings/", "/function/workspace/", "/system/skills/"} {
 		expected, err := webuiDist.ReadFile("webui/dist" + route + "index.html")
 		if err != nil {
@@ -23,6 +51,9 @@ func TestEmbeddedWorkbenchRoutes(t *testing.T) {
 				h.ServeHTTP(r, httptest.NewRequest(method, path, nil))
 				if r.Code != http.StatusOK {
 					t.Errorf("%s %s: got %d, want 200", method, path, r.Code)
+				}
+				if r.Header().Get("Cache-Control") != "no-store" {
+					t.Errorf("stale page cache: %s", path)
 				}
 				if !strings.HasPrefix(r.Header().Get("Content-Type"), "text/html") {
 					t.Errorf("%s %s: expected HTML content type", method, path)

@@ -777,7 +777,8 @@ func (s *Server) runConversationTurn(ctx context.Context, cancel context.CancelC
 	}
 	if _, err := s.runMeteredChat(ctx, ca, c, sessionID, msg, maxTurns, maxDuration, webSearch, emit); err != nil {
 		finishReason = err.Error()
-		if ctx.Err() == nil {
+		var incomplete *agent.ResearchIncompleteError
+		if ctx.Err() == nil && !errors.As(err, &incomplete) {
 			_, _ = pg.AppendConvActivity(c.ID, db.Activity{Worker: c.AgentKey, Kind: "text", IsError: true,
 				Summary: "（出错：" + err.Error() + "）", Detail: err.Error()})
 		}

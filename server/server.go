@@ -35,6 +35,7 @@ import (
 // startup (which in turn gets it from -ldflags "-X main.version=<tag>").
 // Defaults to "dev" for local builds. Exposed to the frontend via GET /api/health.
 var BuildVersion = "dev"
+var WebUIBuildID string
 
 // Server exposes the prtseek backend over a JSON HTTP API for the shadcn/ui
 // frontend.
@@ -1053,7 +1054,8 @@ func (s *Server) Handler() http.Handler {
 // --- handlers ---
 
 func (s *Server) health(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, 200, map[string]any{"ok": true, "service": "prtseek", "version": BuildVersion})
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, 200, map[string]any{"ok": true, "service": "prtseek", "version": BuildVersion, "build_id": WebUIBuildID})
 }
 
 func (s *Server) stats(w http.ResponseWriter, r *http.Request) {

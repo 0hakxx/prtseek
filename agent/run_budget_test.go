@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"iter"
 	"sync"
 	"sync/atomic"
@@ -30,7 +31,12 @@ func TestCTFModelBudgetSurvivesSideCapture(t *testing.T) {
 	chat := NewChatAgent(base, "fixture", t.TempDir(), nil, 128000)
 	chat.SetNonStreaming(func() bool { return true })
 	if _, err := chat.Chat(ctx, "solver", "conv-1", "Summarize the supplied fixture.", 2, 5*time.Second, false, nil); err != nil {
-		t.Fatal(err)
+		var incomplete *ResearchIncompleteError
+		if !errors.As(err, &incomplete) || incomplete.Status != "budget_exhausted" {
+			t.Fatal(err)
+		}
+	} else {
+		t.Fatal("plain text must not bypass the research completion gate")
 	}
 	if budget.Calls() != 1 || base.calls.Load() != 1 {
 		t.Fatalf("side capture bypassed shared budget: counted=%d actual=%d", budget.Calls(), base.calls.Load())

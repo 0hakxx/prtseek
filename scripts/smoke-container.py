@@ -47,6 +47,7 @@ def main():
             else:
                 raise RuntimeError("Container health check timed out")
             assert b"<html" in request("/chat/").lower()
+            assert json.loads(request("/api/health"))["build_id"] == json.loads(request("/build-info.json"))["source_id"]
             assert json.loads(request("/api/auth/status"))["initialized"] == bool(attempt)
             if not attempt:
                 request("/api/auth/init", {"password": password})

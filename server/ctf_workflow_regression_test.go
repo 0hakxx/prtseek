@@ -211,7 +211,7 @@ func TestCTFAsyncReturnsEarlyAndWaitCollectsFirstResult(t *testing.T) {
 				return
 			}
 		}
-		fixtureReply(w, "Blocked: no verified flag.")
+		fixtureResearchBlocked(w)
 	})
 	ctx, run := s.beginCTFWorkflow(t.Context(), c)
 	defer s.closeCTFWorkflow(run)
@@ -243,7 +243,7 @@ func TestCTFAsyncReturnsEarlyAndWaitCollectsFirstResult(t *testing.T) {
 	}
 	completed := 0
 	for _, job := range waited.Jobs {
-		if job.State == "completed" {
+		if job.State == "blocked" {
 			completed++
 			if job.Outcome.State == "verified" {
 				t.Fatal("blocked answer marked verified")

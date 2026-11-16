@@ -4,6 +4,7 @@ package server
 
 import (
 	"embed"
+	"encoding/json"
 	"io/fs"
 	"net/http"
 	"path"
@@ -18,6 +19,16 @@ import (
 //go:embed all:webui/dist
 var webuiDist embed.FS
 
+func init() {
+	data, _ := webuiDist.ReadFile("webui/dist/build-info.json")
+	var info struct {
+		SourceID string `json:"source_id"`
+	}
+	if json.Unmarshal(data, &info) == nil {
+		WebUIBuildID = info.SourceID
+	}
+}
+
 // webuiHandler serves the embedded SPA. Public (no JWT) — auth is enforced
 // client-side and on /api. Serves the exported per-route index.html files and
 // returns 404 for routes that are no longer exported.
@@ -27,6 +38,12 @@ func (s *Server) webuiHandler() http.Handler {
 		panic(err)
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// HTML, RSC payloads and build metadata must revalidate after replacement.
+		// Content-hashed Next assets remain safe to cache across releases.
+		w.Header().Set("Cache-Control", "no-store")
+		if strings.HasPrefix(r.URL.Path, "/_next/static/") {
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		}
 		p := strings.TrimPrefix(path.Clean(r.URL.Path), "/")
 		if p == "" {
 			p = "index.html"

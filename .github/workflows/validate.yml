@@ -24,9 +24,10 @@ jobs:
       # legacy full suite includes platform-dependent shell-analysis fixtures
       # and background task timing tests; it is not the release smoke gate.
       - run: go test ./... -run '^$' -timeout=180s
-      - run: go test ./agent ./server -run '^(TestCTF.*|TestCapture.*|TestModelMeter.*|TestHTTPObservation.*|TestFocusedHTML.*|TestResearchProgress.*|TestResearchExperiment.*|TestHostHTTP.*|TestAgentConnection.*|TestResearchRuntimeLinkedTaskRoot|TestResearchRuntimeProductionChat|TestWorkflowEntryDefaultsToTriageAndKeepsSelectedAgent|TestDelegatedConversationPersistsResult|TestConversationDelegationsIncludesNestedWorkers|TestReserveConversationTurn.*)$' -count=1 -timeout=180s
+      - run: go test ./agent ./server -run '^(TestCTF.*|TestCapture.*|TestModelMeter.*|TestHTTPObservation.*|TestFocusedHTML.*|TestResearchProgress.*|TestResearchExperiment.*|TestHostHTTP.*|TestAgentConnection.*|TestResearchRuntimeLinkedTaskRoot|TestResearchRuntimeProductionChat|TestWorkflowEntryDefaultsToTriageAndKeepsSelectedAgent|TestDelegationHonors.*|TestDelegatedConversationPersistsResult|TestConversationDelegationsIncludesNestedWorkers|TestReserveConversationTurn.*)$' -count=1 -timeout=180s
       - run: go test ./db ./config -count=1 -timeout=180s
       - run: python scripts/eval-ctf.py --self-test
+      - run: node --test scripts/build-state.test.mjs
       - run: npm ci
         working-directory: web
       - run: npm test
@@ -48,9 +49,30 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force server/webui/dist | Out-Null
           Copy-Item web/out/* server/webui/dist -Recurse -Force
-          go build -tags embedui -o prtseek.exe ./cmd/prtseek
+          $version = (Get-Content VERSION -Raw).Trim()
+          go build -tags embedui -ldflags "-X main.version=$version" -o prtseek.exe ./cmd/prtseek
+          node scripts/build-state.mjs write ./prtseek.exe
           go test -tags embedui ./server -run TestEmbeddedWorkbenchRoutes -count=1
           python scripts/smoke.py ./prtseek.exe
+          python scripts/test-windows-launcher.py ./prtseek.exe
+      - name: Browser theme, boot animation and update regression
+        if: runner.os == 'Linux'
+        run: |
+          cd web
+          npx playwright install --with-deps chromium
+          cd ..
+          node scripts/check-ui.cjs ./prtseek
+      - name: Check Windows release launcher packaging
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          prtseek_SKIP_FRONTEND=1 prtseek_PACKAGE=1 bash build.sh --target windows/amd64
+          python -c "import glob,zipfile; z=zipfile.ZipFile(glob.glob('dist/*windows-amd64.zip')[0]); names={p.rsplit('/',1)[-1] for p in z.namelist()}; assert {'prtseek.exe','prtseek.exe.build.json','start.bat','start-prtseek.cmd','start-prtseek.ps1','update-prtseek.cmd','VERSION'} <= names"
+      - uses: actions/upload-artifact@v4
+        if: always() && runner.os == 'Linux'
+        with:
+          name: browser-regression
+          path: .dev/ui-check/
   container:
     runs-on: ubuntu-latest
     steps:

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -37,7 +38,12 @@ func TestCTFConversationPreservesProfileThinking(t *testing.T) {
 		t.Fatal("missing CTF chat agent")
 	}
 	if _, err := chat.Chat(context.Background(), "solver", s.convBusyKey(c.ID), "Analyze local CTF evidence", 0, 10*time.Second, false, nil); err != nil {
-		t.Fatal(err)
+		var incomplete *agent.ResearchIncompleteError
+		if !errors.As(err, &incomplete) || incomplete.Status != "stalled" {
+			t.Fatal(err)
+		}
+	} else {
+		t.Fatal("text-only OK fixture must not count as completed CTF research")
 	}
 	if wire["reasoning_effort"] != "high" {
 		t.Fatalf("profile reasoning effort lost: %v", wire)

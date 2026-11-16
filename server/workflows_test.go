@@ -9,9 +9,74 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"testing"
+	"time"
 
+	"github.com/Autumn-27/artex/agent"
 	"github.com/Autumn-27/artex/db"
 )
+
+func TestDelegationHonorsHourBudgetsAndParentDeadline(t *testing.T) {
+	s, parent := newPersonalBackgroundTestServer(t)
+	if err := s.initAgentWorkflows(); err != nil {
+		t.Fatal(err)
+	}
+	endpoint := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":"fixture","object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","content":"No flag yet"},"finish_reason":"stop"}]}`))
+	}))
+	defer endpoint.Close()
+	id, err := s.m.pg.SaveProfile(&db.LLMProfile{Name: "hour-budget-fixture", Format: "openai", BaseURL: endpoint.URL + "/v1", APIKey: "fixture-only", Model: "fixture", Streaming: false})
+	if err != nil {
+		t.Fatal(err)
+	}
+	parent.AgentKey, parent.LLMProfileID = "command", &id
+	a, err := s.m.pg.GetAgentByKey("solver")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = s.m.pg.SetAgentRunSeconds("solver", a.RunSecs) })
+	for _, tc := range []struct {
+		name               string
+		seconds            int
+		parentBudget, want time.Duration
+	}{{"two hours", 7200, 3 * time.Hour, 2 * time.Hour}, {"unlimited child", 0, 3 * time.Hour, 3 * time.Hour}, {"parent remaining time", 14400, time.Hour, time.Hour}} {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := s.m.pg.SetAgentRunSeconds("solver", tc.seconds); err != nil {
+				t.Fatal(err)
+			}
+			ctx, cancel := context.WithTimeout(t.Context(), tc.parentBudget)
+			defer cancel()
+			start := time.Now()
+			res, err := s.delegateConversation(ctx, parent, "solver", "Inspect a local fixture; preserve unresolved status")
+			if err != nil || res.IsError {
+				t.Fatalf("delegation: %v %s", err, res.Flatten())
+			}
+			var result struct {
+				ConversationID int64  `json:"conversation_id"`
+				State          string `json:"state"`
+			}
+			if json.Unmarshal([]byte(res.Flatten()), &result) != nil || result.State != "stalled" {
+				t.Fatal("partial result reported as success", res.Flatten())
+			}
+			root := filepath.Join(s.m.dir, "sessions", s.convBusyKey(result.ConversationID))
+			memory, err := agent.NewResearchMemory(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			run, err := memory.RunState()
+			if err != nil || run == nil || run.Deadline == nil {
+				t.Fatal("deadline not retained", err)
+			}
+			if delta := run.Deadline.Sub(start) - tc.want; delta < -5*time.Second || delta > 5*time.Second {
+				t.Fatalf("hidden cap or reset: deadline=%s want=%s", run.Deadline.Sub(start), tc.want)
+			}
+			var state string
+			if err := s.m.pg.QueryRow(`SELECT state FROM conversation_delegations WHERE child_id=$1`, result.ConversationID).Scan(&state); err != nil || state != "stalled" {
+				t.Fatalf("persisted outcome=%s err=%v", state, err)
+			}
+		})
+	}
+}
 
 func TestWorkflowEntryDefaultsToTriageAndKeepsSelectedAgent(t *testing.T) {
 	for _, v := range [][3]string{{"", "", "triage"}, {"ctf", "command", "command"}, {"ctf", "solver", "solver"}} {

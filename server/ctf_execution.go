@@ -3,7 +3,10 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -13,6 +16,16 @@ import (
 	"github.com/Autumn-27/artex/intercept"
 	actool "github.com/Autumn-27/norma/tool"
 )
+
+// Keep a finite shared budget, but allow multi-hour installations to opt in to
+// a larger limit without editing source. Invalid values retain the safe default.
+func ctfModelCallLimit() int {
+	n, err := strconv.Atoi(os.Getenv("prtseek_CTF_MODEL_CALL_LIMIT"))
+	if err == nil && n >= 1 && n <= 100000 {
+		return n
+	}
+	return ctfMaxModelCalls
+}
 
 const (
 	ctfMaxActive     = 8
@@ -70,7 +83,7 @@ func (s *Server) beginCTFWorkflow(ctx context.Context, c *db.Conversation) (cont
 		return ctx, existing
 	}
 	runCtx, cancel := context.WithCancel(ctx)
-	w := &ctfWorkflowRun{ctx: runCtx, cancel: cancel, rootID: c.ID, budget: &agent.RunBudget{Limit: ctfMaxModelCalls}, jobs: map[int64]*ctfJob{}, changed: make(chan struct{})}
+	w := &ctfWorkflowRun{ctx: runCtx, cancel: cancel, rootID: c.ID, budget: &agent.RunBudget{Limit: int64(ctfModelCallLimit())}, jobs: map[int64]*ctfJob{}, changed: make(chan struct{})}
 	w.budget.OnCall = func(count int64) {
 		_, _ = s.m.pg.Exec(`UPDATE conversation_executions SET model_calls=MAX(model_calls,$2) WHERE conversation_id=$1`, c.ID, count)
 	}
@@ -335,10 +348,11 @@ func (s *Server) startCTFChild(ctx context.Context, parent *db.Conversation, key
 		return nil, fmt.Errorf("child model unavailable")
 	}
 	budget := time.Duration(a.RunSecs) * time.Second
-	if budget <= 0 || budget > 30*time.Minute {
-		budget = 30 * time.Minute
+	runCtx, timeoutCancel := context.WithCancel(ctx)
+	if budget > 0 {
+		timeoutCancel()
+		runCtx, timeoutCancel = context.WithTimeout(ctx, budget)
 	}
-	runCtx, timeoutCancel := context.WithTimeout(ctx, budget)
 	childCtx, stop := context.WithCancelCause(intercept.WithConvID(runCtx, child.ID))
 	childCtx = context.WithValue(childCtx, ctfDepthKey{}, depth+1)
 	childCtx = agent.WithResponseLanguage(childCtx, s.personalConversationSettings(parent.ID).ResponseLanguage)
@@ -382,6 +396,10 @@ func (s *Server) startCTFChild(ctx context.Context, parent *db.Conversation, key
 		state, failure := "completed", ""
 		if callErr != nil {
 			state, failure = "failed", callErr.Error()
+			var incomplete *agent.ResearchIncompleteError
+			if errors.As(callErr, &incomplete) {
+				state = incomplete.Status
+			}
 		}
 		// Read the inherited/timeout context; our own cleanup cancellation above
 		// must not turn an otherwise completed result into a cancellation.

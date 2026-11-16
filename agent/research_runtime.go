@@ -54,20 +54,22 @@ type researchAttempt struct {
 }
 
 type researchRuntime struct {
-	memory        *ResearchMemory
-	base          harness.HookRunner
-	mu            sync.Mutex
-	attempts      map[string]*researchAttempt
-	wrapped       map[string]bool
-	usedDecisions map[string]bool
-	observations  int
-	checkpoint    bool
-	stopChecked   bool
-	readOnly      bool
-	researchTask  bool
-	recent        []researchProgressObservation
-	stageSteps    int
-	lastReview    int
+	memory          *ResearchMemory
+	base            harness.HookRunner
+	mu              sync.Mutex
+	attempts        map[string]*researchAttempt
+	wrapped         map[string]bool
+	usedDecisions   map[string]bool
+	observations    int
+	checkpoint      bool
+	stopChecked     bool
+	readOnly        bool
+	researchTask    bool
+	recent          []researchProgressObservation
+	stageSteps      int
+	lastReview      int
+	supervisor      *ctfResearchRun
+	sinceCheckpoint int
 }
 
 // Method-card selection is intentionally narrow. Evidence collection and
@@ -203,11 +205,11 @@ func (r *researchRuntime) PreToolUse(ctx context.Context, name string, input []b
 
 func (r *researchRuntime) observe(ctx context.Context, name string, input []byte, result string, isError bool) (string, string) {
 	id, err := r.memory.ObserveToolContext(ctx, name, json.RawMessage(input), result, isError)
-	h := sha256.Sum256([]byte(result))
-	hash := hex.EncodeToString(h[:])
+	hash := progressSignature(name, result)
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.observations++
+	r.sinceCheckpoint++
 	key := researchFingerprint(name, input)
 	a := r.attempts[key]
 	if a == nil {
@@ -220,6 +222,10 @@ func (r *researchRuntime) observe(ctx context.Context, name string, input []byte
 		a.repeats = 1
 	}
 	a.resultHash, a.evidence = hash, id
+	var stateErr error
+	if r.supervisor != nil && !researchPollingTool(name) {
+		stateErr = r.supervisor.observed(a.repeats == 1 && id != "")
+	}
 	if isError {
 		a.failures++
 	} else {
@@ -229,11 +235,17 @@ func (r *researchRuntime) observe(ctx context.Context, name string, input []byte
 	if err != nil {
 		note = "研究证据保存失败：" + err.Error() + "；不能把本次结果标记为已落盘。"
 	}
+	if stateErr != nil {
+		note += "研究运行状态保存失败：" + stateErr.Error() + "；本次不能宣称完成状态已持久化。"
+	}
 	if !researchPollingTool(name) && (a.failures >= 2 || a.repeats >= 3) {
 		note += "停滞提示：相同参数未带来新的观察。先归纳失败原因与反证，再选择能区分假设的下一步；成功返回不等于任务已完成。"
 	}
 	if r.researchTask && !researchPollingTool(name) {
 		note += r.observeProgress(ctx, name, result, id, isError)
+	}
+	if r.supervisor != nil && r.sinceCheckpoint >= 24 && r.sinceCheckpoint%8 == 0 {
+		note += "阶段检查点：请用 research_record 更新当前目标、关键反证及 next_steps，随后继续最有信息量的实验；保存记录不是结束任务。"
 	}
 	return id, note
 }
@@ -255,6 +267,7 @@ func (r *researchRuntime) PostToolUse(ctx context.Context, name string, input, r
 		_ = json.Unmarshal(input, &v)
 		r.mu.Lock()
 		r.checkpoint = true
+		r.sinceCheckpoint = 0
 		r.mu.Unlock()
 		if v.Entry.Kind == "decision" && len(v.Entry.EvidenceIDs) > 0 {
 			r.unlockDecision(result, v.Entry.EvidenceIDs)
@@ -318,6 +331,16 @@ func (r *researchRuntime) Stop(ctx context.Context, msgs []llm.Message) (bool, [
 		if p || len(b) > 0 {
 			return p, b, m
 		}
+	}
+	if r.supervisor != nil {
+		note, err := r.supervisor.continuation()
+		if err != nil {
+			return true, nil, err.Error()
+		}
+		if note != "" {
+			return false, []string{note}, ""
+		}
+		return false, nil, ""
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()

@@ -3,6 +3,7 @@ $projectRoot = [IO.Path]::GetFullPath($PSScriptRoot)
 $workspacePrefix = $projectRoot.TrimEnd('\') + [IO.Path]::DirectorySeparatorChar
 $goPath = Join-Path $projectRoot '.dev/runtime/go/bin/go.exe'
 $outputPath = Join-Path $projectRoot '.dev/prtseek-next.exe'
+$buildVersion = (Get-Content -LiteralPath (Join-Path $projectRoot 'VERSION') -Raw).Trim()
 
 if (!(Test-Path -LiteralPath $goPath -PathType Leaf)) {
     $goCommand = Get-Command go.exe -ErrorAction SilentlyContinue
@@ -19,7 +20,7 @@ Push-Location -LiteralPath $projectRoot
 try {
     Push-Location -LiteralPath (Join-Path $projectRoot 'web')
     try {
-        & npm.cmd ci --cache (Join-Path $projectRoot '.dev/npm-cache')
+        & npm.cmd ci --no-audit --no-fund --cache (Join-Path $projectRoot '.dev/npm-cache')
         if ($LASTEXITCODE -ne 0) { throw '前端依赖安装失败。' }
         $env:NEXT_EXPORT = '1'
         & npm.cmd run build:static
@@ -59,8 +60,10 @@ try {
     $env:GOCACHE = Join-Path $projectRoot '.dev/gocache'
     $env:GOMODCACHE = Join-Path $projectRoot '.dev/gomodcache'
     $env:GOPATH = Join-Path $projectRoot '.dev/gopath'
-    & $goPath build -buildvcs=false -tags embedui -ldflags '-s -w -X main.version=prtseek-v1.3.2' -o $outputPath ./cmd/prtseek
+    & $goPath build -buildvcs=false -tags embedui -ldflags "-s -w -X main.version=$buildVersion" -o $outputPath ./cmd/prtseek
     if ($LASTEXITCODE -ne 0) { throw 'prtseek 后端构建失败，运行中的程序未被替换。' }
+    & node (Join-Path $projectRoot 'scripts/build-state.mjs') write $outputPath
+    if ($LASTEXITCODE -ne 0) { throw '构建指纹记录失败，不能安装候选程序。' }
     Write-Host "构建成功：$outputPath"
     Write-Host '此脚本只构建，不停止服务、不替换 .dev/prtseek.exe 或任何旧版程序。'
 } finally {

@@ -13,6 +13,7 @@ services:
       prtseek_LLM_MODEL: ${prtseek_LLM_MODEL:-}
       prtseek_LLM_BASE_URL: ${prtseek_LLM_BASE_URL:-}
       prtseek_LLM_PROXY: ${prtseek_LLM_PROXY:-}
+      prtseek_CTF_MODEL_CALL_LIMIT: ${prtseek_CTF_MODEL_CALL_LIMIT:-200}
     volumes:
       - ./data:/app/data
       - ./skills:/app/skills
