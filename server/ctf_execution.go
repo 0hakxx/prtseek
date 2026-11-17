@@ -43,7 +43,6 @@ type ctfWorkflowRun struct {
 	rootID        int64
 	budget        *agent.RunBudget
 	jobs          map[int64]*ctfJob
-	verified      map[int64]string
 	active, total int
 	closed        bool
 	changed       chan struct{}
@@ -84,7 +83,7 @@ func (s *Server) beginCTFWorkflow(ctx context.Context, c *db.Conversation) (cont
 		return ctx, existing
 	}
 	runCtx, cancel := context.WithCancel(ctx)
-	w := &ctfWorkflowRun{ctx: runCtx, cancel: cancel, rootID: c.ID, budget: &agent.RunBudget{Limit: int64(ctfModelCallLimit())}, jobs: map[int64]*ctfJob{}, verified: map[int64]string{}, changed: make(chan struct{})}
+	w := &ctfWorkflowRun{ctx: runCtx, cancel: cancel, rootID: c.ID, budget: &agent.RunBudget{Limit: int64(ctfModelCallLimit())}, jobs: map[int64]*ctfJob{}, changed: make(chan struct{})}
 	w.budget.OnCall = func(count int64) {
 		_, _ = s.m.pg.Exec(`UPDATE conversation_executions SET model_calls=MAX(model_calls,$2) WHERE conversation_id=$1`, c.ID, count)
 	}
@@ -130,73 +129,9 @@ func (s *Server) finishCTFExecution(id int64, state string) {
 }
 
 func (w *ctfWorkflowRun) signalLocked() { close(w.changed); w.changed = make(chan struct{}) }
-
-var errCTFVerifiedCompletion = errors.New("目标已验证完成，停止其余研究分支")
-
-func (w *ctfWorkflowRun) verifiedCompletion(id int64) (string, bool) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	summary, ok := w.verified[id]
-	return summary, ok
-}
-
-// A child can finish its own assignment without completing its parent's goal.
-// Only an explicit, validated report from that parent seals the parent run.
-func (w *ctfWorkflowRun) completeVerified(id int64, summary string) {
-	w.mu.Lock()
-	if w.closed || w.ctx.Err() != nil {
-		w.mu.Unlock()
-		return
-	}
-	if _, exists := w.verified[id]; exists {
-		w.mu.Unlock()
-		return
-	}
-	w.verified[id] = summary
-	var stops []context.CancelCauseFunc
-	for _, job := range w.jobs {
-		if w.descendsFromLocked(job.id, id) {
-			job.delivered = true
-			if job.state == "running" {
-				stops = append(stops, job.stop)
-			}
-		}
-	}
-	w.signalLocked()
-	w.mu.Unlock()
-	for _, stop := range stops {
-		stop(errCTFVerifiedCompletion)
-	}
-}
-
-func (w *ctfWorkflowRun) descendsFromLocked(id, ancestorID int64) bool {
-	for job := w.jobs[id]; job != nil; job = w.jobs[job.parentID] {
-		if job.parentID == ancestorID {
-			return true
-		}
-	}
-	return false
-}
-
-func (w *ctfWorkflowRun) hasVerifiedAncestorLocked(id int64) bool {
-	for {
-		if _, ok := w.verified[id]; ok {
-			return true
-		}
-		job := w.jobs[id]
-		if job == nil {
-			return false
-		}
-		id = job.parentID
-	}
-}
-
 func (w *ctfWorkflowRun) completionCheck(parentID int64) string {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	if _, ok := w.verified[parentID]; ok {
-		return ""
-	}
 	var ids []int64
 	for _, job := range w.jobs {
 		if job.parentID == parentID && (job.state == "running" || !job.delivered) {
@@ -214,16 +149,8 @@ func (s *Server) conversationTools(parent *db.Conversation) func(context.Context
 		if !isDefaultCTFAgent(key) {
 			return nil
 		}
-		if key == "writeup" {
-			return s.ctfWriteupTools()
-		}
-		depth, _ := ownerCtx.Value(ctfDepthKey{}).(int)
-		workflow, _ := ownerCtx.Value(ctfWorkflowKey{}).(*ctfWorkflowRun)
-		if depth > 0 || (workflow != nil && workflow.rootID != parent.ID) {
-			return []actool.CoreTool{s.ctfOutcomeTool(parent)}
-		}
 		tools := []actool.CoreTool{
-			wrTool("delegate_agent", "仅在需要分工时同步调用另一个解题 Agent（solve）；简单题直接解决。", objSchema(map[string]any{"agent_key": strParam("solve；省略时也是solve"), "task": strParam("材料、目标、边界、验收条件")}, "task"), func(ctx context.Context, raw json.RawMessage) (actool.Result, error) {
+			wrTool("delegate_agent", "同步执行一个明确的 CTF 子任务并返回结果；简单题优先只派一个 solver。", objSchema(map[string]any{"agent_key": strParam("目标角色"), "task": strParam("材料、目标、边界、验收条件")}, "agent_key", "task"), func(ctx context.Context, raw json.RawMessage) (actool.Result, error) {
 				var req struct {
 					AgentKey string `json:"agent_key"`
 					Task     string `json:"task"`
@@ -235,7 +162,7 @@ func (s *Server) conversationTools(parent *db.Conversation) func(context.Context
 			}),
 			s.ctfOutcomeTool(parent),
 		}
-		if agent.IsCTFSolveRole(key) {
+		if key == "command" {
 			tools = append(tools, s.parallelCTFDelegationTool(parent, ownerCtx))
 		}
 		if _, ok := ownerCtx.Value(ctfWorkflowKey{}).(*ctfWorkflowRun); ok {
@@ -281,8 +208,8 @@ func (s *Server) conversationTools(parent *db.Conversation) func(context.Context
 }
 
 func (s *Server) parallelCTFDelegationTool(parent *db.Conversation, owner ...context.Context) actool.CoreTool {
-	taskSchema := objSchema(map[string]any{"agent_key": strParam("solve；可省略"), "task": strParam("互补方向、材料、目标与验收标准")}, "task")
-	return wrTool("delegate_agents", "难题直接并行调用同一种解题 Agent（solve），通常 2 至 4 个互补方向，最多 6 个，立即返回会话编号。wait_agents 收取首个结果；简单题直接解决。", objSchema(map[string]any{"tasks": map[string]any{"type": "array", "minItems": 1, "maxItems": 6, "items": taskSchema}}, "tasks"), func(ctx context.Context, raw json.RawMessage) (actool.Result, error) {
+	taskSchema := objSchema(map[string]any{"agent_key": strParam("solver"), "task": strParam("互补方向、材料、目标与验收标准")}, "agent_key", "task")
+	return wrTool("delegate_agents", "启动 1 至 6 个互补 Solver 并立即返回会话编号。使用 wait_agents 逐个收取进展；简单题只启动一个。", objSchema(map[string]any{"tasks": map[string]any{"type": "array", "minItems": 1, "maxItems": 6, "items": taskSchema}}, "tasks"), func(ctx context.Context, raw json.RawMessage) (actool.Result, error) {
 		var req struct {
 			Tasks []struct {
 				AgentKey string `json:"agent_key"`
@@ -299,8 +226,8 @@ func (s *Server) parallelCTFDelegationTool(parent *db.Conversation, owner ...con
 		seen := map[string]bool{}
 		for _, task := range req.Tasks {
 			q := strings.TrimSpace(task.Task)
-			if (task.AgentKey != "" && !agent.IsCTFSolveRole(task.AgentKey)) || q == "" || len(q) > 64000 || seen[q] {
-				return actool.Errorf("tasks must be distinct solve assignments, 1..64000 bytes each"), nil
+			if task.AgentKey != "solver" || q == "" || len(q) > 64000 || seen[q] {
+				return actool.Errorf("tasks must be distinct solver assignments, 1..64000 bytes each"), nil
 			}
 			seen[q] = true
 		}
@@ -356,13 +283,12 @@ func (s *Server) startCTFChild(ctx context.Context, parent *db.Conversation, key
 		return nil, err
 	}
 	depth, _ := ctx.Value(ctfDepthKey{}).(int)
-	if depth > 0 || parent.ID != w.rootID {
-		return nil, fmt.Errorf("只有本轮根解题会话可派发；子任务请直接解决并回传，由父会话统一调度")
+	if depth >= ctfMaxDepth {
+		return nil, fmt.Errorf("派发深度已达 %d，请直接分析或返回现有证据", ctfMaxDepth)
 	}
-	if !agent.IsCTFSolveRole(parent.AgentKey) || (key != "" && !agent.IsCTFSolveRole(key)) {
-		return nil, fmt.Errorf("只有解题 Agent 可以派发解题子任务")
+	if key == parent.AgentKey || !isDefaultCTFAgent(parent.AgentKey) || !isDefaultCTFAgent(key) {
+		return nil, fmt.Errorf("不能派发给自身或非默认 CTF 角色")
 	}
-	key = "solve"
 	if strings.TrimSpace(task) == "" || len(task) > 64000 {
 		return nil, fmt.Errorf("task is empty or too long")
 	}
@@ -378,10 +304,6 @@ func (s *Server) startCTFChild(ctx context.Context, parent *db.Conversation, key
 	if w.closed || w.ctx.Err() != nil {
 		w.mu.Unlock()
 		return nil, fmt.Errorf("workflow cancelled")
-	}
-	if w.hasVerifiedAncestorLocked(parent.ID) {
-		w.mu.Unlock()
-		return nil, errCTFVerifiedCompletion
 	}
 	if w.active >= ctfMaxActive || w.total >= ctfMaxJobs {
 		w.mu.Unlock()
@@ -409,10 +331,6 @@ func (s *Server) startCTFChild(ctx context.Context, parent *db.Conversation, key
 	if err != nil {
 		return nil, err
 	}
-	if err := s.beginConversationFileOperation(child.ID); err != nil {
-		return nil, err
-	}
-	defer s.endConversationFileOperation(child.ID)
 	defer func() {
 		if !started {
 			_, _ = s.m.pg.Exec(`UPDATE conversation_delegations SET state='failed' WHERE child_id=$1`, child.ID)
@@ -446,31 +364,21 @@ func (s *Server) startCTFChild(ctx context.Context, parent *db.Conversation, key
 	}
 	_, _ = s.m.pg.AppendConvActivity(child.ID, db.Activity{Worker: key, Kind: "user", Summary: firstLine(task, 200), Detail: childTask})
 	_, _ = s.m.pg.AppendConvActivity(parent.ID, db.Activity{Worker: parent.AgentKey, Kind: "text", Summary: fmt.Sprintf("已分派给 %s · 会话 #%d", key, child.ID)})
-	w.mu.Lock()
-	// Creation performs database I/O outside the workflow lock. Recheck here
-	// so a concurrent successful report cannot miss a newly launched branch.
-	if w.closed || childCtx.Err() != nil || w.hasVerifiedAncestorLocked(parent.ID) {
-		w.mu.Unlock()
-		timeoutCancel()
-		stop(errCTFVerifiedCompletion)
-		return nil, fmt.Errorf("workflow no longer accepts delegation")
-	}
-	w.jobs[child.ID] = job
-	w.signalLocked()
-	w.mu.Unlock()
 	busyKey := s.convBusyKey(child.ID)
 	s.chatMu.Lock()
 	s.chatBusy[busyKey] = true
 	s.chatCancel[busyKey] = stop
 	s.chatMu.Unlock()
+	w.mu.Lock()
+	w.jobs[child.ID] = job
+	w.signalLocked()
+	w.mu.Unlock()
 	started = true
 	go func() {
 		defer w.all.Done()
 		defer timeoutCancel()
 		defer stop(nil)
-		ca = ca.WithExtraTools(s.conversationTools(child)).
-			WithCompletionCheck(func() string { return w.completionCheck(child.ID) }).
-			WithVerifiedCompletion(func() (string, bool) { return w.verifiedCompletion(child.ID) })
+		ca = ca.WithExtraTools(s.conversationTools(child)).WithCompletionCheck(func() string { return w.completionCheck(child.ID) })
 		result, callErr := s.runMeteredChat(childCtx, ca, child, busyKey, childTask, a.MaxTurns, budget, a.WebSearch, func(rec db.Activity) { _, _ = s.m.pg.AppendConvActivity(child.ID, rec) })
 		// Drain descendants before releasing the conversation's busy slot.
 		stop(agent.AbortChatTurnFinished)

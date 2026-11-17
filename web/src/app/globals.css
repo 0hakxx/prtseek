@@ -9,7 +9,6 @@
 @import "../styles/presets/tangerine.css";
 @import "../styles/prtsseek.css";
 @import "../styles/prts-boot.css";
-@import "../styles/prts-cursors.css";
 @custom-variant dark (&:is(.dark *));
 @theme inline {
   --text-xs: 0.6875rem;
@@ -36,7 +35,6 @@
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
-  --color-primary-strong: var(--primary-strong);
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);

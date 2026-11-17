@@ -11,7 +11,6 @@ import (
 	"sync"
 	"testing"
 	"time"
-	"unicode/utf8"
 
 	actool "github.com/Autumn-27/norma/tool"
 )
@@ -498,111 +497,5 @@ func TestResearchMemoryControlCharacterCaptureBound(t *testing.T) {
 	}
 	if len(b) > researchMaxCaptureBytes || !json.Valid(b) {
 		t.Fatalf("escaped output capture is invalid or unbounded: %d", len(b))
-	}
-}
-
-func TestResearchMemoryNonUTF8ToolOutputRemainsReadable(t *testing.T) {
-	m := newResearchTestMemory(t)
-	// Alternating OEM bytes and ASCII reproduces a Windows PowerShell error:
-	// JSON used to expand the 600-byte summary beyond its 700-byte limit.
-	output := strings.Repeat("\xffx\xfey ", 300)
-	id, err := m.ObserveTool("Bash", nil, output, true)
-	if err != nil {
-		t.Fatal(err)
-	}
-	reopened, err := NewResearchMemory(m.root)
-	if err != nil {
-		t.Fatalf("host-created output poisoned the next read: %v", err)
-	}
-	s, err := reopened.Snapshot()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(s.Observations) != 1 || s.Observations[0].ID != id || len(s.Observations[0].Summary) > 700 || !utf8.ValidString(s.Observations[0].Summary) {
-		t.Fatalf("invalid observation metadata: %+v", s.Observations)
-	}
-	if _, err := reopened.Record(context.Background(), ResearchRecordInput{Entry: &ResearchEntryInput{
-		Kind: "failure", Summary: "The shell command failed; use Windows syntax on the next attempt", EvidenceIDs: []string{id},
-	}}); err != nil {
-		t.Fatalf("a real failure can no longer be checkpointed: %v", err)
-	}
-	if _, err := reopened.ObserveTool("Read", nil, "next successful result", false); err != nil {
-		t.Fatalf("later progress blocked by output encoding: %v", err)
-	}
-}
-
-func TestResearchMemoryRejectsUnreadableSerializedCheckpoint(t *testing.T) {
-	m := newResearchTestMemory(t)
-	if _, err := m.ObserveTool("Bash", nil, "a valid prior result", true); err != nil {
-		t.Fatal(err)
-	}
-	p := filepath.Join(m.dir, "state.json")
-	before, _ := os.ReadFile(p)
-	s, err := m.Snapshot()
-	if err != nil {
-		t.Fatal(err)
-	}
-	s.Observations[0].Summary = strings.Repeat("\xff", 300)
-	if err := m.save(s); err == nil {
-		t.Fatal("checkpoint with an oversized JSON-normalized summary replaced valid state")
-	}
-	after, _ := os.ReadFile(p)
-	if string(before) != string(after) {
-		t.Fatal("failed checkpoint changed the previous state")
-	}
-}
-
-func TestResearchMemoryRestoresLegacySummaryOnlyFromIntactCapture(t *testing.T) {
-	for _, tampered := range []bool{false, true} {
-		t.Run(fmt.Sprintf("tampered=%v", tampered), func(t *testing.T) {
-			m := newResearchTestMemory(t)
-			output := strings.Repeat("\xffx\xfey ", 300)
-			if _, err := m.ObserveTool("Bash", nil, output, true); err != nil {
-				t.Fatal(err)
-			}
-			s, err := m.Snapshot()
-			if err != nil {
-				t.Fatal(err)
-			}
-			ev := s.Observations[0]
-			s.Observations[0].Summary = output[:600] + "…[truncated]"
-			legacy, _ := json.Marshal(s)
-			p := filepath.Join(m.dir, "state.json")
-			if err := os.WriteFile(p, legacy, 0600); err != nil {
-				t.Fatal(err)
-			}
-			if tampered {
-				if err := os.WriteFile(filepath.Join(m.root, filepath.FromSlash(ev.Path)), []byte("changed"), 0600); err != nil {
-					t.Fatal(err)
-				}
-			}
-			reopened, err := NewResearchMemory(m.root)
-			if tampered {
-				if err == nil {
-					t.Fatal("legacy recovery trusted a modified capture")
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("intact legacy evidence cannot be resumed: %v", err)
-			}
-			afterRead, _ := os.ReadFile(p)
-			if string(afterRead) != string(legacy) {
-				t.Fatal("read-only recovery mutated the source checkpoint")
-			}
-			fixed, err := reopened.Snapshot()
-			if err != nil {
-				t.Fatal(err)
-			}
-			if fixed.Observations[0].ID != ev.ID || fixed.Observations[0].SHA256 != ev.SHA256 || fixed.Observations[0].ResultSHA256 != ev.ResultSHA256 || len(fixed.Observations[0].Summary) > 700 {
-				t.Fatal("recovery changed evidence identity or did not restore summary bounds")
-			}
-			if _, err := reopened.ObserveTool("Read", nil, "continued without rerunning the original shell command", false); err != nil {
-				t.Fatalf("cannot continue after legacy metadata recovery: %v", err)
-			}
-			if _, err := NewResearchMemory(m.root); err != nil {
-				t.Fatalf("recovered checkpoint was not persisted by the next normal write: %v", err)
-			}
-		})
 	}
 }

@@ -30,18 +30,18 @@ func TestDelegationHonorsHourBudgetsAndParentDeadline(t *testing.T) {
 		t.Fatal(err)
 	}
 	parent.AgentKey, parent.LLMProfileID = "command", &id
-	a, err := s.m.pg.GetAgentByKey("solve")
+	a, err := s.m.pg.GetAgentByKey("solver")
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = s.m.pg.SetAgentRunSeconds("solve", a.RunSecs) })
+	t.Cleanup(func() { _ = s.m.pg.SetAgentRunSeconds("solver", a.RunSecs) })
 	for _, tc := range []struct {
 		name               string
 		seconds            int
 		parentBudget, want time.Duration
 	}{{"two hours", 7200, 3 * time.Hour, 2 * time.Hour}, {"unlimited child", 0, 3 * time.Hour, 3 * time.Hour}, {"parent remaining time", 14400, time.Hour, time.Hour}} {
 		t.Run(tc.name, func(t *testing.T) {
-			if err := s.m.pg.SetAgentRunSeconds("solve", tc.seconds); err != nil {
+			if err := s.m.pg.SetAgentRunSeconds("solver", tc.seconds); err != nil {
 				t.Fatal(err)
 			}
 			ctx, cancel := context.WithTimeout(t.Context(), tc.parentBudget)
@@ -78,8 +78,8 @@ func TestDelegationHonorsHourBudgetsAndParentDeadline(t *testing.T) {
 	}
 }
 
-func TestWorkflowEntryDefaultsToSolveAndNormalizesLegacyRoles(t *testing.T) {
-	for _, v := range [][3]string{{"", "", "solve"}, {"ctf", "command", "solve"}, {"ctf", "solver", "solve"}, {"ctf", "triage", "solve"}, {"ctf", "writeup", "writeup"}} {
+func TestWorkflowEntryDefaultsToTriageAndKeepsSelectedAgent(t *testing.T) {
+	for _, v := range [][3]string{{"", "", "triage"}, {"ctf", "command", "command"}, {"ctf", "solver", "solver"}} {
 		got, err := workflowEntry(v[0], v[1])
 		if err != nil || got != v[2] {
 			t.Fatalf("%v: %s %v", v, got, err)
@@ -105,8 +105,8 @@ func TestCTFDelegationToolsAreExposed(t *testing.T) {
 	if len(toolsFor("custom_solver")) != 0 {
 		t.Fatal("custom agents should not expose delegation tools")
 	}
-	if !toolsFor("solve")["delegate_agents"] || !toolsFor("solver")["delegate_agents"] || toolsFor("writeup")["delegate_agents"] || toolsFor("writeup")["delegate_agent"] {
-		t.Fatal("solve and legacy solve aliases should delegate; writeup should only read sources")
+	if toolsFor("solver")["delegate_agents"] || toolsFor("writeup")["delegate_agents"] {
+		t.Fatal("only command gets the parallel delegation tool")
 	}
 }
 
@@ -121,7 +121,7 @@ func TestDelegatedConversationPersistsResult(t *testing.T) {
 			t.Error(err)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		fixtureResearchBlocked(w)
+		w.Write([]byte(`{"id":"fixture","object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","content":"Verified fixture result"},"finish_reason":"stop"}]}`))
 	}))
 	defer endpoint.Close()
 	id, err := s.m.pg.SaveProfile(&db.LLMProfile{Name: "delegation fixture", Format: "openai", BaseURL: endpoint.URL + "/v1", APIKey: "test-only", Model: "fixture", Streaming: false})
@@ -130,7 +130,7 @@ func TestDelegatedConversationPersistsResult(t *testing.T) {
 	}
 	parent.AgentKey = "command"
 	parent.LLMProfileID = &id
-	_, err = s.delegateConversation(context.Background(), parent, "solve", "Inspect a local fixture; do not use external targets.")
+	_, err = s.delegateConversation(context.Background(), parent, "writeup", "Write a fixture note from the verified local evidence; do not use external targets.")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -140,7 +140,7 @@ func TestDelegatedConversationPersistsResult(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer s.m.pg.DeleteConversation(childID)
-	if state != "blocked" {
+	if state != "completed" {
 		t.Fatalf("delegation state %s", state)
 	}
 	child, err := s.m.pg.GetConversation(childID)
@@ -157,8 +157,8 @@ func TestDelegatedConversationPersistsResult(t *testing.T) {
 		t.Fatalf("child did not receive parent evidence path %q", wantWorkspace)
 	}
 	data, _ := json.Marshal(wire["tools"])
-	if bytes.Contains(data, []byte(`"delegate_agent"`)) || bytes.Contains(data, []byte(`"delegate_agents"`)) {
-		t.Fatal("solve child should return evidence instead of delegating another layer")
+	if !bytes.Contains(data, []byte(`"delegate_agent"`)) {
+		t.Fatal("default writeup agent should retain delegation")
 	}
 	if !bytes.Contains(data, []byte(`"research_recall"`)) {
 		t.Fatal("non-DeepSeek CTF child lost research tools")

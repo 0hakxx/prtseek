@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { api } from "@/lib/api";
 import { elapsedLabel, executionLabel, outcomeLabel, endReasonLabel, verificationLevelLabel } from "@/lib/ctf-status";
+import { hideResearchEvidenceAnnotation } from "@/lib/research-evidence";
 import { type ConversationFile, type ConversationOverview as Overview, workflowsApi } from "@/lib/workflows-api";
 
 export function ConversationOverview({ id, overview }: { id: number; overview: Overview | null }) {
@@ -36,9 +37,7 @@ export function ConversationOverview({ id, overview }: { id: number; overview: O
 
   return <div className="shrink-0 border-b bg-background px-4 py-2 text-xs text-muted-foreground">
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-      {overview && <details className="min-w-0 flex-1">
-        <summary className="cursor-pointer py-1">本轮 {elapsedLabel(overview.elapsed_ms)} · 累计 Token {(overview.input_tokens + overview.output_tokens).toLocaleString()}<span className="ml-2 text-muted-foreground">运行详情</span></summary>
-        <div className="flex flex-wrap gap-x-4 gap-y-2 py-2">
+      {overview && <>
         <span>执行：{executionLabel(overview.state)}</span>
         <span className={overview.outcome.state === "blocked" ? "text-amber-600 dark:text-amber-400" : "text-foreground"}>目标：{outcomeLabel(overview.outcome.state)}</span>
         <span>本轮 {elapsedLabel(overview.elapsed_ms)}</span>
@@ -47,10 +46,10 @@ export function ConversationOverview({ id, overview }: { id: number; overview: O
         {overview.end_reason && <span title={`运行编号 ${overview.turn_id ?? "—"}`}>结束原因：{endReasonLabel(overview.end_reason)}</span>}
         <span title="本轮与子任务共享的逻辑模型请求预算；底层网络重试另计">调用 {overview.model_calls}/{overview.model_call_limit}</span>
         {overview.active_children > 0 && <span>{overview.active_children} 个子任务执行中</span>}
-        </div>
-      </details>}
+      </>}
       <Button size="sm" variant="outline" className="ml-auto" onClick={() => { setOpen(true); void loadFiles(); }}>会话文件</Button>
     </div>
+    {overview?.latest && <p className="mt-1 truncate" title={hideResearchEvidenceAnnotation(overview.latest.summary)}>最近动态：{overview.latest.worker} · {overview.latest.tool || overview.latest.kind} · {hideResearchEvidenceAnnotation(overview.latest.summary)}</p>}
     {overview?.outcome.summary && <details className="mt-1">
       <summary className="cursor-pointer text-foreground">目标报告：{overview.outcome.summary}</summary>
       <div className="space-y-1 py-2 whitespace-pre-wrap break-words">
@@ -72,7 +71,7 @@ export function ConversationOverview({ id, overview }: { id: number; overview: O
           {!fileState && files.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">此会话尚无文件。</p>}
           <ul className="divide-y">
             {files.map((file) => <li key={`${file.conversation_id}/${file.path}`} className="flex flex-wrap items-center gap-2 py-2 text-sm">
-              <button type="button" className="min-w-0 flex-1 text-left hover:underline" onClick={() => void showFile(file)}>
+              <button className="min-w-0 flex-1 text-left hover:underline" onClick={() => void showFile(file)}>
                 <span className="block break-all font-medium">{file.name}</span>
                 <span className="block break-all text-xs text-muted-foreground">{({ input: "附件", artifact: "产物", evidence: "证据" })[file.kind]} · #{file.conversation_id} · {file.path} · {file.size.toLocaleString()} B</span>
               </button>

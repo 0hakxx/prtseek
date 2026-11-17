@@ -177,11 +177,6 @@ func researchPollingTool(name string) bool {
 }
 
 func (r *researchRuntime) PreToolUse(ctx context.Context, name string, input []byte) (bool, string, []byte) {
-	if r.supervisor != nil {
-		if _, done := r.supervisor.acceptVerifiedCompletion(); done {
-			return true, "本次目标已经由宿主验证完成，停止额外工具调用，直接交付已确认结果。", nil
-		}
-	}
 	if r.base != nil {
 		block, msg, updated := r.base.PreToolUse(ctx, name, input)
 		if block {

@@ -41,7 +41,7 @@ import { cn } from "@/lib/utils";
 // Traffic tools are host tools gated by the global 流量捕获 switch: bindable, but
 // only usable when capture is on. Keep this list in sync with traffic.SeedToolMetas.
 const TRAFFIC_TOOL_KEYS = new Set(["traffic_search", "traffic_get", "traffic_blob"]);
-const CTF_AGENT_KEYS = new Set(["solve", "triage", "command", "solver", "writeup"]);
+const CTF_AGENT_KEYS = new Set(["triage", "command", "solver", "writeup"]);
 
 // AgentEditor is the tabbed editor for one agent, used inside the agents-page
 // drawer (and reused full-page for deep links). Tabs: 配置与提示词 / MCP / Skill /

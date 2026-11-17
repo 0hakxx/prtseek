@@ -1,4 +1,4 @@
-/* prtseek tactical control terminal: graphite, ice blue and restrained cyan. */
+/* prtseek tactical control terminal: restrained graphite, signal yellow and cyan. */
 
 :root,
 :root[data-theme-preset] {
@@ -9,10 +9,8 @@
   --card-foreground: #20272a;
   --popover: var(--card);
   --popover-foreground: var(--card-foreground);
-  --primary: #e8f3fb;
-  --primary-hover: #d7eafa;
-  --primary-foreground: #29475d;
-  --primary-strong: #42657f;
+  --primary: #d89b27;
+  --primary-foreground: #15191b;
   --secondary: #e1e5e1;
   --secondary-foreground: #20272a;
   --muted: #e6eae6;
@@ -21,10 +19,10 @@
   --accent-foreground: #182126;
   --border: #bdc7c4;
   --input: #aab9b6;
-  --ring: #62869f;
+  --ring: #359c9b;
   --sidebar: var(--card);
   --sidebar-foreground: var(--card-foreground);
-  --sidebar-primary: var(--primary-strong);
+  --sidebar-primary: var(--primary);
   --sidebar-primary-foreground: var(--primary-foreground);
   --sidebar-accent: var(--accent);
   --sidebar-accent-foreground: var(--accent-foreground);
@@ -33,9 +31,9 @@
   --chart-1: #2c383a;
   --chart-2: #359c9b;
   --chart-3: #798e88;
-  --chart-4: #779ab5;
+  --chart-4: #d89b27;
   --chart-5: #c7d0cb;
-  --prts-signal: var(--primary-strong);
+  --prts-signal: #d89b27;
   --prts-cyan: #359c9b;
   --prts-ink: #20272a;
   --prts-paper: #f8f9f6;
@@ -56,10 +54,8 @@
   --card-foreground: #e5ece8;
   --popover: var(--card);
   --popover-foreground: var(--card-foreground);
-  --primary: #dcecf7;
-  --primary-hover: #c9e1f2;
-  --primary-foreground: #233e51;
-  --primary-strong: #b4d1e6;
+  --primary: #e3a62d;
+  --primary-foreground: #161a1b;
   --secondary: #1d292c;
   --secondary-foreground: #e5ece8;
   --muted: #182225;
@@ -68,12 +64,12 @@
   --accent-foreground: #eef4ef;
   --border: #314145;
   --input: #3a4a4e;
-  --ring: #91b6d0;
-  --prts-signal: var(--primary-strong);
+  --ring: #4bb6b1;
+  --prts-signal: #e3a62d;
   --prts-cyan: #4bb6b1;
   --sidebar: var(--card);
   --sidebar-foreground: var(--card-foreground);
-  --sidebar-primary: var(--primary-strong);
+  --sidebar-primary: var(--primary);
   --sidebar-primary-foreground: var(--primary-foreground);
   --sidebar-accent: var(--accent);
   --sidebar-accent-foreground: var(--accent-foreground);
@@ -187,17 +183,6 @@ body {
   align-items: center;
   gap: 10px;
   white-space: nowrap;
-}
-
-/* Separate monochrome exports keep the supplied mark legible on either surface. */
-.prts-mark {
-  display: inline-block;
-  background: url("/brand/rhodes-mark-dark.png") center / contain no-repeat;
-}
-
-.dark .prts-mark,
-.prts-mark.prts-mark-light {
-  background-image: url("/brand/rhodes-mark-light.png");
 }
 
 .prts-brand-copy {
@@ -483,51 +468,9 @@ body {
   place-items: center;
   padding: 64px 24px;
   position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  background: #e9eff3;
-}
-
-.prts-auth-scenery {
-  position: absolute;
-  inset: -4%;
-  z-index: -2;
-  pointer-events: none;
-  background: url("/brand/login-scene.webp") center / cover no-repeat;
-  filter: saturate(0.22) contrast(0.8) blur(1.4px);
-  opacity: 0.58;
-  animation: prts-auth-drift 36s ease-in-out infinite alternate;
-}
-
-.prts-auth-stage::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background: linear-gradient(110deg, #edf3f8b8, #f3f6f84d 48%, #e8f0f6c9);
-}
-
-.dark .prts-auth-stage {
-  background: #10191f;
-}
-
-.dark .prts-auth-scenery {
-  opacity: 0.23;
-  filter: saturate(0.16) contrast(0.9) blur(2px);
-}
-
-.dark .prts-auth-stage::after {
-  background: linear-gradient(110deg, #0c171fbd, #12212a80 48%, #0e1821cc);
-}
-
-@keyframes prts-auth-drift {
-  from {
-    transform: translate3d(-0.6%, 0.3%, 0) scale(1.025);
-  }
-  to {
-    transform: translate3d(0.6%, -0.3%, 0) scale(1.055);
-  }
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 48px 48px;
 }
 
 .prts-auth-coordinates {
@@ -543,13 +486,11 @@ body {
 
 .prts-auth {
   min-height: 560px;
-  width: min(100%, 1040px);
+  width: min(100%, 1000px);
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
-  box-shadow:
-    0 28px 90px #243c5024,
-    0 1px 0 #ffffff66;
+  grid-template-columns: 1.35fr 1fr;
+  border: 1px solid var(--border);
+  box-shadow: 0 24px 80px #0004;
 }
 
 .prts-auth-identity {
@@ -558,15 +499,9 @@ body {
   flex-direction: column;
   justify-content: space-between;
   padding: 36px;
-  background: linear-gradient(155deg, #f5f9fcab 0%, #e8f1f680 48%, #d8e7f0a6 100%);
-  color: var(--foreground);
-  border-right: 1px solid color-mix(in srgb, var(--border) 45%, transparent);
-  backdrop-filter: blur(8px);
+  background: linear-gradient(135deg, #121718, #0a0a0a);
+  color: #edf0eb;
   overflow: hidden;
-}
-
-.dark .prts-auth-identity {
-  background: linear-gradient(155deg, #263d4b99 0%, #21344066 48%, #172b38a6 100%);
 }
 
 .prts-auth-top {
@@ -576,7 +511,7 @@ body {
 }
 
 .prts-auth-top > .prts-micro {
-  color: var(--muted-foreground);
+  color: #87918c;
   font-size: 14px;
 }
 
@@ -588,13 +523,14 @@ body {
   margin-block: 48px 30px;
 }
 
-.prts-auth-symbol .prts-mark {
-  width: 168px;
-  height: 168px;
+.prts-auth-symbol svg {
+  width: 78px;
+  height: 78px;
   margin-bottom: 24px;
+  color: var(--prts-signal);
 }
 
-.prts-auth-symbol > span:not(.prts-mark) {
+.prts-auth-symbol > span {
   font-weight: 650;
   font-size: clamp(36px, 4vw, 58px);
   line-height: 1;
@@ -608,7 +544,7 @@ body {
   font-family: var(--font-mono), monospace;
   font-size: 14px;
   letter-spacing: 0.45em;
-  border-bottom: 1px solid color-mix(in srgb, var(--foreground) 35%, transparent);
+  border-bottom: 1px solid #77817c;
   width: 100%;
   text-align: center;
   padding-block: 12px;
@@ -616,7 +552,7 @@ body {
 
 .prts-auth-caption {
   margin-top: auto;
-  padding-top: 22px;
+  padding-top: 50px;
 }
 
 .prts-auth-caption > span {
@@ -626,7 +562,7 @@ body {
 }
 
 .prts-auth-caption p {
-  color: var(--muted-foreground);
+  color: #87918c;
   font-family: var(--font-mono), monospace;
   font-size: 14px;
   letter-spacing: 0.14em;
@@ -634,7 +570,7 @@ body {
 }
 
 .prts-auth-bottom {
-  border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-top: 1px solid #3b4242;
   padding-top: 18px;
   margin-top: 38px;
   display: flex;
@@ -642,7 +578,7 @@ body {
   font-family: var(--font-mono), monospace;
   font-size: 14px;
   letter-spacing: 0.15em;
-  color: var(--muted-foreground);
+  color: #a1aca6;
 }
 
 .prts-auth-form {
@@ -651,8 +587,7 @@ body {
   justify-content: center;
   padding: 42px 36px;
   position: relative;
-  background: color-mix(in srgb, var(--card) 94%, transparent);
-  backdrop-filter: blur(18px);
+  background: var(--background);
 }
 
 .prts-auth-content {
@@ -681,8 +616,8 @@ body {
   margin-top: 10px;
   justify-content: space-between;
   padding-inline: 16px;
-  background: var(--primary);
-  color: var(--primary-foreground);
+  background: var(--prts-signal);
+  color: #0a0a0a;
   clip-path: polygon(0 0, 100% 0, 100% 72%, 96% 100%, 0 100%);
 }
 
@@ -709,10 +644,6 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .prts-auth-scenery {
-    animation: none;
-    transform: none;
-  }
   .prts-ui *,
   .prts-ui *::before,
   .prts-ui *::after {
@@ -727,7 +658,7 @@ body {
     display: none;
   }
   .prts-auth-form {
-    padding: 40px 30px;
+    padding: 40px 12%;
   }
   .prts-header-version {
     display: none;
@@ -741,8 +672,7 @@ body {
   .prts-auth-coordinates {
     top: 18px;
     left: 14px;
-    font-size: 10px;
-    letter-spacing: 0.12em;
+    font-size: 14px;
   }
   .prts-header {
     padding-inline: 12px;
@@ -773,7 +703,7 @@ body {
   }
   .prts-auth-mobile {
     display: block;
-    margin-bottom: 36px;
+    margin-bottom: 60px;
   }
   .prts-auth-content {
     margin-block: auto;
@@ -967,7 +897,7 @@ body {
   text-transform: uppercase;
 }
 .prts-ui [data-slot="button"][data-variant="default"]:hover:not(:disabled) {
-  background: var(--primary-hover);
+  filter: brightness(1.2);
 }
 .prts-ui [data-slot="button"][data-variant="default"]:focus-visible {
   outline-offset: -4px;
@@ -1122,8 +1052,8 @@ body {
   border-color: var(--border);
 }
 .prts-ui :is([data-slot="input"], [data-slot="textarea"], [data-slot="select-trigger"]):focus-visible {
-  border-color: var(--ring);
-  outline: 1px solid var(--ring);
+  border-color: var(--primary);
+  outline: 1px solid var(--primary);
   outline-offset: 1px;
 }
 .prts-ui [data-slot="tabs-list"] {

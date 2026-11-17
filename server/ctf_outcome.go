@@ -65,7 +65,7 @@ func (s *Server) ctfTreeIDs(id int64) ([]int64, error) {
 
 func (s *Server) ctfOutcomeTool(c *db.Conversation) actool.CoreTool {
 	ref := objSchema(map[string]any{"conversation_id": map[string]any{"type": "integer", "description": "证据所属会话编号；自己的证据可省略"}, "id": strParam("真实工具证据 t... 编号")}, "id")
-	return wrTool("report_outcome", "记录本次目标状态。已有可信成功观察时立即报告 verified，一次收口并停止本任务的其余分支，不再重复复测或写报告；observed 级别充分，无须额外 reproduced/accepted。须填写 verification 并引用可回查成功工具证据；文件存在和候选 flag 都不足以证明成功。", objSchema(map[string]any{
+	return wrTool("report_outcome", "记录本次目标状态，与运行是否结束独立。verified 表示 Agent 已按 criterion 实际验证，须填写 verification 并引用可回查成功工具证据；文件存在和候选 flag 都不足以证明成功。", objSchema(map[string]any{
 		"state":   map[string]any{"type": "string", "enum": []string{"unverified", "partial", "blocked", "verified"}},
 		"summary": strParam("结论或实际阻塞点"), "criterion": strParam("本子任务可验证的验收条件"), "verification": strParam("实际验证方式和观测结果；不得把推断写成验证"),
 		"evidence":           map[string]any{"type": "array", "maxItems": 16, "items": ref},
@@ -87,11 +87,6 @@ func (s *Server) ctfOutcomeTool(c *db.Conversation) actool.CoreTool {
 		body, _ := json.Marshal(outcome)
 		if _, err := s.m.pg.Exec(`INSERT INTO conversation_outcomes(conversation_id,report_json) VALUES($1,$2) ON CONFLICT(conversation_id) DO UPDATE SET report_json=excluded.report_json`, c.ID, string(body)); err != nil {
 			return actool.Errorf("无法保存目标状态"), nil
-		}
-		if outcome.State == "verified" {
-			if workflow, ok := ctx.Value(ctfWorkflowKey{}).(*ctfWorkflowRun); ok {
-				workflow.completeVerified(c.ID, outcome.Summary)
-			}
 		}
 		return jsonResult(outcome)
 	})

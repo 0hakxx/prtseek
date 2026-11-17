@@ -165,95 +165,26 @@ func TestCTFResearchContinuesAcrossThreeSimulatedHours(t *testing.T) {
 	}
 }
 
-func TestCTFResearchRejectsUnverifiedCompletion(t *testing.T) {
+func TestCTFResearchRejectsUnverifiedCompletionAndOldEvidence(t *testing.T) {
 	opts, run := ctfTestOptions(t, &researchRuntimeProvider{}, 0)
 	for _, input := range []string{`{"status":"completed","summary":"flag guessed"}`, `{"status":"completed","summary":"invented evidence","evidence_ids":["t999999"]}`, `{"status":"blocked","summary":"no flag"}`, `{"status":"blocked","summary":"network down","blocker":"environment","resume_when":"network returns"}`} {
 		if res := researchInvoke(t, &opts, "research_status", input); !res.IsError {
 			t.Fatalf("accepted %s", input)
 		}
 	}
+	researchInvoke(t, &opts, "inspect_fixture", `{}`)
+	state, _ := run.memory.Snapshot()
+	id := state.Observations[0].ID
+	// A fresh run cannot complete solely on a previous run's successful output.
+	run.startEvidence = state.NextID
+	if res := researchInvoke(t, &opts, "research_status", fmt.Sprintf(`{"status":"completed","summary":"old result","evidence_ids":[%q]}`, id)); !res.IsError {
+		t.Fatal("old evidence accepted")
+	}
 	if res := researchInvoke(t, &opts, "research_status", `{"status":"blocked","summary":"challenge attachment is absent","blocker":"missing_input","resume_when":"challenge attachment supplied"}`); res.IsError {
 		t.Fatal(res.Flatten())
 	}
 	if run.snapshot().Status != "blocked" {
 		t.Fatal("blocker lost")
-	}
-}
-
-func TestCTFResearchResumeUsesIntactTaskEvidence(t *testing.T) {
-	for _, mode := range []string{"intact", "changed", "missing", "failed"} {
-		t.Run(mode, func(t *testing.T) {
-			opts, run := ctfTestOptions(t, &researchRuntimeProvider{}, 0)
-			id, err := run.memory.ObserveTool("inspect_fixture", json.RawMessage(`{}`), "fixture observed", mode == "failed")
-			if err != nil {
-				t.Fatal(err)
-			}
-			state, _ := run.memory.Snapshot()
-			run.startEvidence = state.NextID
-			path := filepath.Join(run.memory.root, state.Observations[0].Path)
-			if mode == "changed" {
-				if err := os.WriteFile(path, []byte("changed"), 0600); err != nil {
-					t.Fatal(err)
-				}
-			}
-			if mode == "missing" {
-				if err := os.Remove(path); err != nil {
-					t.Fatal(err)
-				}
-			}
-			res := researchInvoke(t, &opts, "research_status", fmt.Sprintf(`{"status":"completed","summary":"Existing task observation satisfies goal","evidence_ids":[%q]}`, id))
-			if res.IsError != (mode != "intact") {
-				t.Fatalf("mode=%s error=%v result=%s", mode, res.IsError, res.Flatten())
-			}
-		})
-	}
-}
-
-func TestCTFResearchHostCompletionSealsWithoutAnotherModelCall(t *testing.T) {
-	for _, streaming := range []bool{false, true} {
-		t.Run(fmt.Sprint("streaming=", streaming), func(t *testing.T) {
-			p := &researchRuntimeProvider{}
-			var provider llm.Provider = p
-			if streaming {
-				provider = &ctfStreamingFixture{p}
-			}
-			opts, run := ctfTestOptions(t, provider, 2)
-			opts.NonStreaming = !streaming
-			verified := false
-			run.verifiedCompletion = func() (string, bool) { return "Fixture goal satisfied", verified }
-			opts.Tools = append(opts.Tools, actool.Build(actool.Spec{Name: "report_fixture", Schema: map[string]any{"type": "object"}, RawInput: true,
-				Concurrent: func(json.RawMessage) bool { return false },
-				Permissions: func(context.Context, json.RawMessage, permission.Context) permission.Decision {
-					return permission.Decision{Behavior: permission.Allow}
-				},
-				Run: func(context.Context, json.RawMessage, *actool.ToolContext) (actool.Result, error) {
-					verified = true
-					return actool.Text("verified"), nil
-				},
-			}))
-			calls := 0
-			p.complete = func(llm.CompletionRequest) (llm.Message, string, llm.Usage, error) {
-				calls++
-				if calls == 1 {
-					return ctfToolReply("inspect_fixture", `{}`, calls)
-				}
-				return ctfToolReply("report_fixture", `{}`, calls)
-			}
-			s := agentcore.NewSession(opts)
-			defer s.Close()
-			text, err := captureCTFResearch(t.Context(), s, run, "Inspect fixture", "solver", nil)
-			if err != nil || calls != 2 || text != "Fixture goal satisfied" || run.snapshot().Status != "completed" {
-				t.Fatalf("calls=%d text=%s state=%+v err=%v", calls, text, run.snapshot(), err)
-			}
-			before, _ := run.memory.Snapshot()
-			if res := researchInvoke(t, &opts, "inspect_fixture", `{"redundant":true}`); !res.IsError {
-				t.Fatal("extra work executed after host completion")
-			}
-			after, _ := run.memory.Snapshot()
-			if after.NextID != before.NextID {
-				t.Fatal("late tool created new evidence")
-			}
-		})
 	}
 }
 

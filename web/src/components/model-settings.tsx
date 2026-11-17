@@ -193,7 +193,7 @@ export function ModelEditor({
                       }}
                     >
                       <span className="min-w-0 break-all">{item}</span>
-                      {model === item && <Check className="ml-3 size-4 shrink-0 text-primary-strong" />}
+                      {model === item && <Check className="ml-3 size-4 shrink-0 text-primary" />}
                     </button>
                   ))}
                 {models.every((item) => !item.toLowerCase().includes(modelQuery.trim().toLowerCase())) && (
@@ -332,7 +332,7 @@ export function ModelSettings() {
               <div className="min-w-0">
                 <div className="flex items-center gap-2 font-medium">
                   {p.name}
-                  {p.is_default && <span className="rounded bg-primary/10 px-2 py-0.5 text-xs text-primary-strong">默认</span>}
+                  {p.is_default && <span className="rounded bg-primary/10 px-2 py-0.5 text-xs text-primary">默认</span>}
                 </div>
                 <p className="mt-1 break-all text-sm text-muted-foreground">
                   {p.model} · {p.format}

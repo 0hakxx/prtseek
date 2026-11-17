@@ -10,7 +10,6 @@ import (
 )
 
 var defaultCTFAgents = map[string]bool{
-	"solve":   true,
 	"triage":  true,
 	"command": true,
 	"solver":  true,
@@ -18,7 +17,6 @@ var defaultCTFAgents = map[string]bool{
 }
 
 func isDefaultCTFAgent(key string) bool { return defaultCTFAgents[key] }
-func isVisibleCTFAgent(key string) bool { return key == "solve" || key == "writeup" }
 
 func (s *Server) initAgentWorkflows() error {
 	pg := s.m.pg
@@ -47,11 +45,10 @@ func (s *Server) initAgentWorkflows() error {
 		}
 	}
 	for _, def := range []struct{ key, name, description, prompt string }{
-		{"solve", "解题", "直接解题；难题按需并行研究，成功立即交付。", agent.CTFSolvePrompt},
-		{"triage", "解题", "历史解题会话兼容角色。", agent.CTFSolvePrompt},
-		{"command", "解题", "历史解题会话兼容角色。", agent.CTFSolvePrompt},
-		{"solver", "解题", "历史解题会话兼容角色。", agent.CTFSolvePrompt},
-		{"writeup", "写 WP", "只读引用历史会话与产物，在自己的工作区整理 WP。", agent.CTFWriteupPrompt},
+		{"triage", "CTF Triage", "CTF 入口与材料盘点：识别题型、附件、授权范围和 flag 线索。", agent.CTFTriagePrompt},
+		{"command", "CTF Command", "CTF 编排与任务分解：建立目标、并行派发 Solver 并收敛证据。", agent.CTFPlannerPrompt},
+		{"solver", "CTF Solver", "CTF 解题执行：分析分派材料、验证链路并回传可复现证据。", agent.CTFWorkerPrompt},
+		{"writeup", "CTF WriteUP", "CTF 交付归档：基于真实证据整理 WRITEUP、EXP 与复现步骤。", agent.CTFWriteupPrompt},
 	} {
 		a, err := pg.GetAgentByKey(def.key)
 		if err != nil {
@@ -71,25 +68,8 @@ func (s *Server) initAgentWorkflows() error {
 			if err = pg.SetAgentRunSeconds(a.Key, seconds); err != nil {
 				return err
 			}
-			if def.key == "solve" {
-				// Preserve the old entry's operational settings on the one-time move
-				// to the single solve role; leave its history and prompt untouched.
-				_, err = pg.Exec(`UPDATE agents SET (llm_profile_id,max_turns,run_seconds,web_search,interactive_shell)=(SELECT llm_profile_id,max_turns,run_seconds,web_search,interactive_shell FROM agents WHERE key='triage') WHERE key='solve' AND EXISTS(SELECT 1 FROM agents WHERE key='triage')`)
-				if err != nil {
-					return err
-				}
-				for _, statement := range []string{
-					`INSERT INTO agent_visibility(agent_id,resource_kind,resource_id,mcp_tool_name,enabled) SELECT $1,v.resource_kind,v.resource_id,v.mcp_tool_name,v.enabled FROM agent_visibility v JOIN agents a ON a.id=v.agent_id WHERE a.key='triage' ON CONFLICT DO NOTHING`,
-					`INSERT INTO agent_skill_visibility(agent_id,skill_name,enabled) SELECT $1,v.skill_name,v.enabled FROM agent_skill_visibility v JOIN agents a ON a.id=v.agent_id WHERE a.key='triage' ON CONFLICT DO NOTHING`,
-					`UPDATE tools SET agents=collection_append(agents,'solve') WHERE EXISTS(SELECT 1 FROM json_each(agents) WHERE value='triage') AND NOT EXISTS(SELECT 1 FROM json_each(agents) WHERE value='solve')`,
-				} {
-					if _, err = pg.Exec(statement, a.ID); err != nil {
-						return err
-					}
-				}
-			}
-		} else if a.Name != def.name || a.Description != def.description {
-			if err = pg.UpdateAgentMeta(a.Key, def.name, def.description); err != nil {
+		} else if a.Description == "" || a.Description == "CTF 模式专用角色，可编辑提示词与模型配置" || a.Description == "默认 CTF 编组角色；可配置提示词、模型与可见资源。" {
+			if err = pg.UpdateAgentMeta(a.Key, a.Name, def.description); err != nil {
 				return err
 			}
 		}
@@ -102,7 +82,7 @@ func (s *Server) initAgentWorkflows() error {
 			return err
 		}
 		if current != def.prompt && updatedBy == "system" {
-			if _, err = pg.SavePrompt(a.ID, def.prompt, "CTF solve/writeup roles v6", "system"); err != nil {
+			if _, err = pg.SavePrompt(a.ID, def.prompt, "CTF workflow v4", "system"); err != nil {
 				return err
 			}
 		}
@@ -116,14 +96,11 @@ func workflowMode(_ string) string { return "ctf" }
 
 func workflowEntry(_, key string) (string, error) {
 	if strings.TrimSpace(key) == "" {
-		return "solve", nil
+		return "triage", nil
 	}
 	key = strings.TrimSpace(key)
-	if agent.IsCTFSolveRole(key) {
-		return "solve", nil
-	}
-	if key != "writeup" {
-		return "", fmt.Errorf("请选择解题或写 WP")
+	if !isDefaultCTFAgent(key) {
+		return "", fmt.Errorf("仅支持默认 CTF Agent")
 	}
 	return key, nil
 }

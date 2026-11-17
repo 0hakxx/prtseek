@@ -5,7 +5,6 @@ import { PrtsBrand, PrtsMark } from "@/components/prts-brand";
 export function PrtsAuthShell({ children, mode = "ACCESS" }: { children: ReactNode; mode?: string }) {
   return (
     <main className="prts-auth-stage">
-      <div className="prts-auth-scenery" aria-hidden="true" />
       <div className="prts-auth-coordinates" aria-hidden="true">
         PRTSEEK / LOCAL OPERATIONS SYSTEM
       </div>

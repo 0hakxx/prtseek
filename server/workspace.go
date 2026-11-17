@@ -148,12 +148,6 @@ func (s *Server) wsWrite(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, 400, "非法路径")
 		return
 	}
-	finish, err := s.beginWorkspaceConversationWrite(abs)
-	if err != nil {
-		writeErr(w, 409, err.Error())
-		return
-	}
-	defer finish()
 	if fi, err := os.Stat(abs); err == nil && fi.IsDir() {
 		writeErr(w, 400, "目标是目录")
 		return
@@ -183,12 +177,6 @@ func (s *Server) wsMkdir(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, 400, "非法路径")
 		return
 	}
-	finish, err := s.beginWorkspaceConversationWrite(abs)
-	if err != nil {
-		writeErr(w, 409, err.Error())
-		return
-	}
-	defer finish()
 	if err := os.MkdirAll(abs, 0o755); err != nil {
 		writeErr(w, 500, err.Error())
 		return
@@ -244,12 +232,6 @@ func (s *Server) wsUpload(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, 400, "非法路径")
 		return
 	}
-	finish, err := s.beginWorkspaceConversationWrite(dirAbs)
-	if err != nil {
-		writeErr(w, 409, err.Error())
-		return
-	}
-	defer finish()
 	if fi, err := os.Stat(dirAbs); err != nil || !fi.IsDir() {
 		writeErr(w, 400, "目标目录不存在")
 		return

@@ -24,29 +24,20 @@ import (
 // LS/Glob/Grep) plus whatever skills/MCP the key is made visible; NO pentest
 // graph/task context is injected (that stays exclusive to MainAgent).
 type ChatAgent struct {
-	prov               llm.Provider
-	model              string
-	workDir            string
-	tx                 *transcript.Store
-	window             int
-	proxyAddr          string
-	proxyCACert        string
-	webSearch          WebSearchOpts
-	guard              *guard.Guard // optional; nil disables intercept hooks for chat
-	nonStreamingFn     func() bool  // resolver: use non-streaming (Complete) path? (nil = streaming)
-	noaEnabledFn       func() bool  // resolver: use experimental noa compaction? (nil = off)
-	maxTokensFn        func() int   // resolver: per-reply output cap (nil/0 = send no cap)
-	extraToolsFn       func(context.Context, string) []actool.CoreTool
-	completionCheck    func() string
-	verifiedCompletion func() (string, bool)
-}
-
-// WithVerifiedCompletion accepts only the host's current-run, evidence-validated
-// outcome. A child's local success or a previous turn is not the caller's goal.
-func (c *ChatAgent) WithVerifiedCompletion(check func() (string, bool)) *ChatAgent {
-	copy := *c
-	copy.verifiedCompletion = check
-	return &copy
+	prov            llm.Provider
+	model           string
+	workDir         string
+	tx              *transcript.Store
+	window          int
+	proxyAddr       string
+	proxyCACert     string
+	webSearch       WebSearchOpts
+	guard           *guard.Guard // optional; nil disables intercept hooks for chat
+	nonStreamingFn  func() bool  // resolver: use non-streaming (Complete) path? (nil = streaming)
+	noaEnabledFn    func() bool  // resolver: use experimental noa compaction? (nil = off)
+	maxTokensFn     func() int   // resolver: per-reply output cap (nil/0 = send no cap)
+	extraToolsFn    func(context.Context, string) []actool.CoreTool
+	completionCheck func() string
 }
 
 func (c *ChatAgent) WithCompletionCheck(check func() string) *ChatAgent {
@@ -109,13 +100,16 @@ func chatWorkDirSpec(workDir string) string {
 // no per-key in-code default, so DefaultAssistantPrompt is the render fallback.
 func chatSystem(agentKey, dataDir, workDir string) string {
 	prompt := renderSystem(agentKey, DefaultAssistantPrompt, chatVars{DataDir: dataDir, Now: nowStr()})
-	if IsCTFSolveRole(agentKey) {
-		prompt += "\n\n协作约定：只有一种解题角色。简单题直接做；难题用delegate_agents给solve分配2至4个互补未知点。收到首个足以完成目标的结果立即交付，宿主停止多余分支。不转交指挥角色，不自动派写WP。"
+	if agentKey == "triage" {
+		prompt += "\n\n协作约定：材料足够且几步可解决时直接 delegate_agent 给 solver；需要多个互补方向时再交给 command。缺少题目或附件时明确缺口，不能只用文字声称已经分工。"
+	}
+	if agentKey == "command" {
+		prompt += "\n\n协作约定：按复杂度使用 delegate_agents 启动 1 至 6 个互补 solver；简单题只需一个。此工具立即返回编号，使用 wait_agents 等待任一结果，及时利用突破口、用 cancel_agent 停止无价值分支，并收取取消后的结果。每项任务写清材料、目标、边界、产物和验收标准。最多同时8个、单轮总计24个子任务、深度4层，整轮共享200次模型调用；不要为用满并行度而重复分工。收敛后按需要交给 writeup。"
+	}
+	if agentKey == "triage" || agentKey == "command" || agentKey == "solver" || agentKey == "writeup" {
 		prompt += "\n\n" + CTFEvidencePriority + "\n\n" + ctfRoleMethod(agentKey)
-		prompt += "\n一次真实题目响应/本地求解结果的来源和验收条件清楚，且没有反证时，verification_level=observed已可交付，不要求反复请求或新开验证Agent。候选、示例或来源可疑的字符串才需一次有针对性的核对。只有隔离对照确实能消除歧义时才用research_experiment；不要把普通读取和已成功操作都套上基线/复测流程。reproduced与accepted是可选的更高证据等级，不是比赛交付门槛，平台接受必须有真实回执。"
-		prompt += "\n\n目标达到后只调用一次report_outcome(state=verified)：summary先给flag/答案及最短使用步骤，criterion写本次真实目标，verification简述来源和判断，引用成功工具证据；子任务证据携带真实conversation_id。宿主会结束本轮并清理多余后代，无需再调用research_status、research_record、派writeup或重跑工具来证明流程完成。未达目标时用partial/unverified并继续有信息增益的工作。"
-	} else if agentKey == "writeup" {
-		prompt += "\n\n" + CTFWriteupPrompt + "\n\n" + CTFWriteupMethod
+		prompt += "\n实验前用 research_experiment 记录假设、改变变量和预期，使用唯一目录/远程产物前缀，并先记录基线。只读到答案用 verification_level=observed；独立复现用 reproduced，提供 experiment_id、baseline_evidence、result_evidence；平台接受用 accepted 并提供 acceptance_evidence。重复读取旧产物不能证明从初始状态独立复现；平台接受必须有真实回执。阶段复核只写结论、证据、反证、下一步，不要求展示内部思维。"
+		prompt += "\n\n交付前调用 report_outcome：明确验收条件、目标状态（unverified/partial/blocked/verified）、结论、证据编号及产物相对路径。verified 必须说明实际验证方法并引用成功工具证据；候选 flag 或只有推断时只能用 partial/unverified。引用子任务证据时携带真实 conversation_id。运行正常结束不代表目标已达成。"
 	}
 	return prompt + chatWorkDirSpec(workDir)
 }
@@ -180,16 +174,8 @@ func (c *ChatAgent) Chat(ctx context.Context, agentKey, sessionID, message strin
 		base = defaultToolsExcept("Sleep")
 	}
 	ctx = WithRunInfo(ctx, RunInfo{SessionID: sessionID})
-	var tools []actool.CoreTool
-	var def DeferredInfo
-	cleanup := func() {}
-	if agentKey == "writeup" {
-		ws.Enabled = false
-		tools = ctfWriteupWorkspaceTools(sessionWorkDir)
-	} else {
-		base = hostTools(base, c.proxyAddr, c.proxyCACert)
-		tools, def, cleanup = AugmentTools(ctx, agentKey, base)
-	}
+	base = hostTools(base, c.proxyAddr, c.proxyCACert)
+	tools, def, cleanup := AugmentTools(ctx, agentKey, base)
 	defer cleanup()
 	if c.extraToolsFn != nil {
 		tools = append(tools, c.extraToolsFn(ctx, agentKey)...)
@@ -246,14 +232,12 @@ func (c *ChatAgent) Chat(ctx context.Context, agentKey, sessionID, message strin
 	// 实验功能:开启后由 noa 接管上下文压缩(归档集中在 <workDir>/noa/<SessionID> 下,持久)。
 	enableNoa(&opts, c.noaEnabledFn, c.workDir, "chat-"+sessionID, noaWarn("chat-"+sessionID))
 	ctx = attachSideCapture(ctx, &opts)
-	if IsCTFRole(agentKey) {
+	if agentKey == "triage" || agentKey == "command" || agentKey == "solver" || agentKey == "writeup" {
 		ctx = WithResearchOptimization(ctx, true)
 		ctx = withoutResearchGuide(ctx)
 	}
-	if agentKey != "writeup" {
-		if err := AttachResearchRuntime(ctx, &opts, c.model, sessionWorkDir, message); err != nil {
-			return "", err
-		}
+	if err := AttachResearchRuntime(ctx, &opts, c.model, sessionWorkDir, message); err != nil {
+		return "", err
 	}
 	research, err := attachCTFResearch(ctx, &opts, agentKey, message, maxTurns)
 	if err != nil {
@@ -277,7 +261,6 @@ func (c *ChatAgent) Chat(ctx context.Context, agentKey, sessionID, message strin
 	seedUnlockFromHistory(s.Messages(), def.UnlockSkill)
 	if research != nil {
 		research.completionCheck = c.completionCheck
-		research.verifiedCompletion = c.verifiedCompletion
 		return captureCTFResearch(ctx, s, research, message, agentKey, emit)
 	}
 	text, reason, err := captureRunSession(ctx, s, message, func(r db.Activity) {

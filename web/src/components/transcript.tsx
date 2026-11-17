@@ -19,15 +19,12 @@ import {
 import { toast } from "sonner";
 
 import { ApprovalDetail } from "@/components/approval-records";
-import { ToolElapsed } from "@/components/activity-status";
 import { Markdown } from "@/components/markdown";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { api } from "@/lib/api";
-import { entryRoleLabel } from "@/lib/entry-roles";
 import { hideResearchEvidenceAnnotation } from "@/lib/research-evidence";
-import { createToolExecutionContext, type ToolExecutionContext, toolExecutionState } from "@/lib/tool-execution-state";
 import type { Activity, InterceptPending } from "@/lib/types";
 
 import styles from "./chat-workspace.module.css";
@@ -360,21 +357,18 @@ function InterceptCard({ step, getDetail }: { step: Activity; getDetail: (seq: n
 // full input AND output together). Lazy-loads both details on expand.
 function ToolBlock({
   group,
-  executionContext,
   getDetail,
   showWorker,
   focused = false,
 }: {
   group: Extract<Group, { type: "tool" }>;
-  executionContext: ToolExecutionContext;
   getDetail: (seq: number) => Promise<string>;
   showWorker?: boolean;
   focused?: boolean;
 }) {
   const [open, setOpen] = React.useState(focused);
   const targetRef = React.useRef<HTMLElement>(null);
-  const [detail, setDetail] = React.useState<{ label: string; text: string; failed: boolean }[] | null>(null);
-  const [retry, setRetry] = React.useState(0);
+  const [detail, setDetail] = React.useState<string | null>(null);
   // what we last loaded, keyed by the underlying step seqs. When the tool result
   // arrives after we expanded mid-run (command only), this key changes and the
   // effect below re-fetches — so the output shows up instead of being cached out.
@@ -382,10 +376,9 @@ function ToolBlock({
   const { use, result } = group;
   const toolName = use?.tool || result?.tool || "工具";
   const ToolIcon = toolName === "Bash" ? Terminal : Wrench;
-  const executionState = toolExecutionState(use, result, executionContext);
-  const running = executionState === "running";
-  const ok = executionState === "succeeded";
-  const statusTone = running || executionState === "unreturned"
+  const running = !result;
+  const ok = !!result && !result.is_error;
+  const statusTone = running
     ? "text-muted-foreground"
     : ok
       ? "text-emerald-600 dark:text-emerald-400"
@@ -394,27 +387,28 @@ function ToolBlock({
     use && use.summary.startsWith(toolName) ? use.summary.slice(toolName.length).trimStart() : (use?.summary ?? "");
   const cmd = toolInputText(toolName, rawCmd);
   // status only — the full result lives behind the expand (【输出】), not previewed inline
-  const statusText = running ? "运行中" : executionState === "unreturned" ? "未返回结果" : ok ? "已返回" : "执行失败";
+  const statusText = running ? "执行中…" : ok ? "✓" : "✕ 失败";
 
   // key over the seqs we'd load; changes when the result (or command) arrives.
-  const detailKey = `${use?.seq ?? ""}:${result?.seq ?? ""}:${retry}`;
+  const detailKey = `${use?.seq ?? ""}:${result?.seq ?? ""}`;
   React.useEffect(() => {
     if (!open || loadedKey.current === detailKey) return;
     let live = true;
-    setDetail(null);
     const segs: { label: string; seq: number }[] = [];
-    if (use) segs.push({ label: toolName === "Bash" ? "完整命令" : "调用参数", seq: use.seq });
-    if (result) segs.push({ label: "已返回输出", seq: result.seq });
+    if (use) segs.push({ label: "命令", seq: use.seq });
+    if (result) segs.push({ label: "输出" + (result.is_error ? " ✕" : " ✓"), seq: result.seq });
     void Promise.all(
       segs.map((x) =>
         getDetail(x.seq)
-          .then((d) => ({ text: d || "（空）", failed: false }))
-          .catch(() => ({ text: "读取详情失败，请重试。", failed: true })),
+          .then((d) => d || "（空）")
+          .catch(() => "（加载失败）"),
       ),
     ).then((parts) => {
       if (!live) return;
       setDetail(
-        segs.map((x, i) => ({ label: x.label, text: x.seq === use?.seq ? toolInputText(toolName, parts[i].text) : parts[i].text, failed: parts[i].failed })),
+        segs
+          .map((x, i) => `【${x.label}】\n${x.label === "命令" ? toolInputText(toolName, parts[i]) : parts[i]}`)
+          .join("\n\n"),
       );
       loadedKey.current = detailKey;
     });
@@ -468,30 +462,21 @@ function ToolBlock({
     <section
       ref={targetRef}
       aria-label={focused ? `定位的工具调用 #${use?.seq}` : undefined}
-      data-tool-state={executionState}
-      className={styles.toolCard + " " + (focused ? styles.focusedTool : "")}
+      className={focused ? styles.focusedTool : "text-xs"}
     >
-      <button type="button" onClick={toggle} aria-expanded={open} className={styles.toolTrigger}>
+      <button type="button" onClick={toggle} aria-expanded={open} className={styles.executionRow}>
         <span className="mt-0.5 text-muted-foreground">
           {open ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
         </span>
-        <ToolIcon className={"mt-0.5 size-3.5 shrink-0 " + (running ? "text-primary-strong" : statusTone)} />
-        {showWorker && <span className={chip(group.worker)}>{entryRoleLabel(group.worker)}</span>}
-        <span className={styles.toolMain}>
-          <span className={styles.toolHeading}><span className={styles.toolName}>{toolName}</span><ToolElapsed from={use?.ts} to={result?.ts} live={running} /></span>
-          {cmd && <span className={styles.toolPreview} title={cmd}>{cmd}</span>}
+        <ToolIcon className={"mt-0.5 size-3.5 shrink-0 " + (running ? "text-foreground" : statusTone)} />
+        {showWorker && <span className={chip(group.worker)}>{group.worker}</span>}
+        <span className={styles.toolName} title={toolName}>
+          {toolName}
         </span>
-        <span className={styles.toolState + " " + statusTone}>{running && <span className={styles.breathDot} />}{statusText}</span>
+        {cmd && <span className="min-w-0 flex-1 truncate font-mono text-muted-foreground">{cmd}</span>}
+        <span className={"ml-auto shrink-0 font-medium " + statusTone}>{statusText}</span>
       </button>
-      {open && <div className={styles.toolDetails}>
-        {detail ? detail.map((part) => <section key={part.label}>
-          <div className={styles.toolDetailLabel}><span>{part.label}</span>
-            {part.failed ? <button type="button" onClick={() => setRetry((value) => value + 1)}>重试</button> : <button type="button" aria-label={`复制${part.label}`} onClick={() => void navigator.clipboard.writeText(part.text).then(() => toast.success("已复制")).catch(() => toast.error("复制失败"))}>复制</button>}
-          </div>
-          <pre className={styles.toolCode}>{part.text}</pre>
-        </section>) : <p className="p-3 text-xs text-muted-foreground">正在读取详情…</p>}
-        {!result && <p className={styles.toolOutputHint}>{running ? "等待工具返回；已返回的输出会显示在这里。" : "这次调用没有返回结果记录。"}</p>}
-      </div>}
+      {open && <pre className={styles.codeDetails}>{detail ?? "加载中…"}</pre>}
     </section>
   );
 }
@@ -515,7 +500,7 @@ function MessageBlock({
   const speak = group.steps.filter((s) => s.kind !== "thinking");
   const hasThinking = group.steps.some((s) => s.kind === "thinking");
   const isError = group.steps.some((s) => s.is_error);
-  const body = (speak.length ? speak : group.steps).map((s) => s.summary).join("  ") || "暂无过程记录";
+  const body = (speak.length ? speak : group.steps).map((s) => s.summary).join("  ") || "…";
   const Icon = isError ? Flag : MessageSquare;
   const tone = isError ? "text-red-600 dark:text-red-400" : "text-foreground";
 
@@ -544,16 +529,16 @@ function MessageBlock({
   }
 
   return (
-    <div className={styles.processCard}>
-      <button type="button" onClick={toggle} aria-expanded={open} className={styles.toolTrigger}>
+    <div className="text-xs">
+      <button type="button" onClick={toggle} aria-expanded={open} className={styles.executionRow}>
         <span className="mt-0.5 text-muted-foreground">
           {open ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
         </span>
         <Icon className={"mt-0.5 size-3.5 shrink-0 " + tone} />
-        {showWorker && <span className={chip(group.worker)}>{entryRoleLabel(group.worker)}</span>}
-        <span className={styles.toolMain}>
-          <span className={styles.processHeading}>{hasThinking ? "模型过程记录" : "过程消息"}<ActivityTime ts={group.steps.at(-1)?.ts ?? ""} /></span>
-          <span className={styles.processPreview + " " + tone}>{body}</span>
+        {showWorker && <span className={chip(group.worker)}>{group.worker}</span>}
+        <span className={"min-w-0 flex-1 truncate " + tone}>
+          {body}
+          {hasThinking && <span className="ml-1 text-xs text-muted-foreground">· 含推理</span>}
         </span>
       </button>
       {open && <pre className={styles.codeDetails}>{detail ?? "加载中…"}</pre>}
@@ -634,7 +619,7 @@ function UserRow({
           <div className={styles.userAttachments}>
             {attachments.map((a) => (
               <div key={a.path} className={styles.attachment} title={a.path}>
-                <PaperclipIcon className="size-3 shrink-0 text-primary-strong" />
+                <PaperclipIcon className="size-3 shrink-0 text-primary" />
                 <span className="max-w-[180px] truncate font-medium">{a.name}</span>
                 <span className="shrink-0 text-muted-foreground">{fmtBytes(a.size)}</span>
               </div>
@@ -691,21 +676,18 @@ function AnswerBlock({ step, getDetail }: { step: Activity; getDetail: (seq: num
 // view actually mixes agents.
 function ExecView({
   activity,
-  live,
   taskId,
   chat,
   fetchDetail,
   focusedSeq,
 }: {
   activity: Activity[];
-  live?: boolean;
   taskId?: string;
   chat?: boolean;
   fetchDetail?: (seq: number) => Promise<string>;
   focusedSeq?: number;
 }) {
   const showWorker = new Set(activity.map((a) => a.worker)).size > 1;
-  const executionContext = React.useMemo(() => createToolExecutionContext(activity, live), [activity, live]);
   const visibleActivity = React.useMemo(
     () => activity.map((step) => ({
       ...step,
@@ -738,7 +720,6 @@ function ExecView({
           <ToolBlock
             key={"t" + g.key}
             group={g}
-            executionContext={executionContext}
             getDetail={getDetail}
             showWorker={showWorker}
             focused={focusedSeq != null && g.use?.seq === focusedSeq}
@@ -792,11 +773,11 @@ export function Transcript({
       className="flex flex-col gap-1"
       style={focusPadding ? { paddingBlock: focusPadding } : undefined}
     >
-      <ExecView activity={activity} live={live} taskId={taskId} chat={chat} fetchDetail={fetchDetail} focusedSeq={focusedSeq} />
-      {live && !chat && (
+      <ExecView activity={activity} taskId={taskId} chat={chat} fetchDetail={fetchDetail} focusedSeq={focusedSeq} />
+      {live && (
         <div className="flex items-center gap-2 py-3 text-xs text-muted-foreground">
           <span className={styles.progressSignal} />
-          <span>正在处理，等待下一条活动</span>
+          <span className="font-mono tracking-wider">RECEIVING / 实时接收中</span>
         </div>
       )}
     </div>

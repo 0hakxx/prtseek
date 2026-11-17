@@ -37,17 +37,17 @@
   opacity: 0;
 }
 .prts-boot-mark {
-  width: 136px;
-  height: 136px;
+  width: 80px;
+  height: 80px;
 }
-.prts-boot-emblem > span:not(.prts-mark),
+.prts-boot-emblem > span,
 .prts-boot-caption,
 .prts-boot-index {
   font-family: var(--font-geist-mono), monospace;
   font-size: 9px;
   letter-spacing: 0.22em;
 }
-.prts-boot-emblem > span:not(.prts-mark) {
+.prts-boot-emblem > span {
   opacity: 0.6;
 }
 .prts-boot-wordmark {
@@ -95,6 +95,10 @@
 }
 .prts-boot[data-playing="true"] .prts-boot-emblem {
   animation: prts-boot-emblem var(--prts-boot-duration) linear both;
+}
+.prts-boot[data-playing="true"] .prts-boot-mark path {
+  stroke-dasharray: 200;
+  animation: prts-boot-draw var(--prts-boot-duration) ease-out both;
 }
 .prts-boot[data-playing="true"] .prts-boot-wordmark {
   animation: prts-boot-wordmark var(--prts-boot-duration) linear both;
@@ -152,6 +156,15 @@
   46%,
   100% {
     opacity: 0;
+  }
+}
+@keyframes prts-boot-draw {
+  0% {
+    stroke-dashoffset: 200;
+  }
+  34%,
+  100% {
+    stroke-dashoffset: 0;
   }
 }
 @keyframes prts-boot-wordmark {
