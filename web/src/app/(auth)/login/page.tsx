@@ -123,7 +123,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => setTermsOpen(true)}
-                className="mx-0.5 font-medium text-primary underline-offset-4 hover:underline"
+                className="mx-0.5 font-medium text-primary-strong underline-offset-4 hover:underline"
               >
                 《使用须知》
               </button>
@@ -139,7 +139,7 @@ export default function LoginPage() {
       <Dialog open={termsOpen} onOpenChange={setTermsOpen}>
         <DialogContent className="gap-0 p-0 sm:max-w-2xl">
           <DialogHeader className="flex-row items-center gap-3 border-b px-6 py-4">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary-strong">
               <ShieldCheck className="size-5" />
             </div>
             <div className="space-y-0.5">

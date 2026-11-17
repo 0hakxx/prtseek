@@ -1,0 +1,30 @@
+PRTS cursor assets — local web adaptation
+
+User reference:
+https://www.bilibili.com/video/BV1Kph66BEYZ/
+https://b23.tv/rMNz5vV
+
+Original cursor author named in the video description:
+アキタム @Akitum10
+Redraw/optimization and cross-platform distribution: Crowning (crowninggg).
+https://github.com/crowninggg/prts-cursor
+
+Source release: v1.1.5
+https://github.com/crowninggg/prts-cursor/releases/tag/v1.1.5
+Source archive: PRTS-macOS-1.1.5.zip
+Archive entry: PRTS Install.app/Contents/Resources/PRTS-Final-Static.cape
+Extracted static cursor representations, resampled to 32 / 40 / 48 pixels.
+Hotspots were scaled from source metadata, not estimated from the picture.
+No installer or downloaded executable was run.
+
+Rights: The repository does not include a LICENSE granting redistribution.
+The source identifies this as an unofficial fan/self-use derivative and
+states that Arknights and character/interface materials belong to the
+respective rights holders. Do not describe these assets as freely licensed
+or treat this attribution as permission for public redistribution.
+
+Original package credit (Windows Credits.txt):
+非官方自用衍生工具。明日方舟及角色/界面素材归原权利人。迷迭香模型取自本机ArkPets已解包资源，行为为独立窗口适配实现，未运行ArkPets程序。Spine运行库保留源码内许可证；WebView2来自微软官方NuGet包。
+
+Only static cursor images were extracted for this task; the pet, Spine
+runtime, WebView2 components, installers, and system settings are unused.

@@ -228,9 +228,9 @@ func (s *Server) pgListAgents(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, 500, err.Error())
 		return
 	}
-	visible := make([]*db.Agent, 0, len(defaultCTFAgents))
+	visible := make([]*db.Agent, 0, 2)
 	for _, a := range ags {
-		if !pg.AgentArchived(a.Key) && isDefaultCTFAgent(a.Key) {
+		if !pg.AgentArchived(a.Key) && isVisibleCTFAgent(a.Key) {
 			visible = append(visible, a)
 		}
 	}

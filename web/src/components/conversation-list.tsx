@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
+import { entryRoleLabel } from "@/lib/entry-roles";
 import type { Conversation } from "@/lib/types";
 
 export function ConversationList({
@@ -38,7 +39,7 @@ export function ConversationList({
     if (
       kind === "delete" &&
       !window.confirm(
-        `删除会话「${item.title || "未命名会话"}」及其历史记录？${item.running ? "该会话正在运行，删除也会停止运行。" : ""}`,
+        `删除会话「${item.title || "未命名会话"}」？\n\n会同时永久删除该会话记录，以及其工作区中的附件、脚本、输出和研究文件，无法恢复。其他会话不受影响。${item.running ? "\n\n该会话正在运行，删除也会停止运行。" : ""}`,
       )
     )
       return;
@@ -49,13 +50,13 @@ export function ConversationList({
       if (kind === "delete") await api.deleteConversation(item.id);
       await onReload();
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(`${kind === "delete" ? "删除失败：" : ""}${(e as Error).message}`);
     } finally {
       setBusy(undefined);
     }
   }
   const filtered = items.filter((item) =>
-    `${item.title} ${item.agent_key}`.toLowerCase().includes(query.trim().toLowerCase()),
+    `${item.title} ${item.agent_key} ${entryRoleLabel(item.agent_key)}`.toLowerCase().includes(query.trim().toLowerCase()),
   );
   return (
     <aside className="conversation-sidebar" aria-label="会话管理">
@@ -77,7 +78,7 @@ export function ConversationList({
         </Button>
         <Input
           aria-label="搜索会话"
-          placeholder="搜索会话、Agent…"
+          placeholder="搜索会话…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
@@ -109,7 +110,7 @@ export function ConversationList({
                 {item.title || "未命名会话"}
               </span>
               <span className="mt-1 block truncate text-xs text-muted-foreground">
-                {item.agent_key} · {item.running ? "运行中" : "已保存"}
+                {entryRoleLabel(item.agent_key)} · {item.running ? "运行中" : "已保存"}
               </span>
             </button>
             <div className="flex justify-end gap-1 px-2 pb-2">

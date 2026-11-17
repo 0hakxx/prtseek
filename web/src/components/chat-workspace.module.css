@@ -174,6 +174,78 @@
 .missionRun[data-live="true"] {
   color: var(--chat-signal);
 }
+.entryRoles {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+  border: 1px solid var(--border);
+  padding: 2px;
+}
+.entryRoles button {
+  padding: 5px 14px;
+  font-size: 13px;
+  white-space: nowrap;
+  color: var(--muted-foreground);
+}
+.entryRoles button[aria-pressed="true"] {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.entryRoles button:disabled { opacity: 0.45; }
+.entryRoles button:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.activityStatus {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  border-bottom: 1px solid var(--border);
+  padding: 14px 24px;
+  background: color-mix(in srgb, var(--primary) 28%, var(--background));
+}
+.statusOrb {
+  display: flex;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  color: var(--muted-foreground);
+  background: var(--background);
+}
+.statusOrb[data-live="true"] {
+  color: var(--primary-strong);
+  border-color: color-mix(in srgb, var(--chat-signal) 45%, var(--border));
+  background: color-mix(in srgb, var(--chat-signal) 13%, var(--background));
+  animation: statusBreath 2.4s ease-in-out infinite;
+}
+.statusContent { min-width: 0; flex: 1; }
+.statusHeading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.statusHeading strong { font-size: 14px; font-weight: 600; }
+.statusUpdated { margin-left: auto; font-size: 11px; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
+.statusContent p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 4px; color: var(--muted-foreground); font-size: 12px; }
+.elapsed { font-size: 11px; font-variant-numeric: tabular-nums; color: var(--muted-foreground); white-space: nowrap; }
+.toolCard, .processCard { min-width: 0; margin: 5px 0; border: 1px solid var(--border); background: var(--background); }
+.toolCard[data-tool-state="running"] { border-left: 2px solid color-mix(in srgb, var(--chat-signal) 65%, var(--border)); }
+.toolTrigger { display: flex; width: 100%; min-width: 0; align-items: flex-start; gap: 9px; padding: 11px 12px; text-align: left; font-size: 12px; }
+.toolTrigger:hover { background: color-mix(in srgb, var(--muted) 35%, transparent); }
+.toolTrigger:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.toolMain { flex: 1; min-width: 0; }
+.toolHeading, .processHeading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; font-weight: 500; }
+.processHeading { color: var(--muted-foreground); }
+.processHeading time { margin-left: auto; font-size: 11px; font-weight: 400; }
+.toolPreview { display: block; overflow: hidden; margin-top: 3px; text-overflow: ellipsis; white-space: nowrap; color: var(--muted-foreground); font-family: var(--font-mono, monospace); font-size: 12px; }
+.processPreview { display: -webkit-box; overflow: hidden; margin-top: 5px; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.65; font-size: 13px; }
+.toolState { display: flex; align-items: center; gap: 6px; flex-shrink: 0; padding-top: 1px; font-size: 11px; }
+.breathDot { width: 5px; height: 5px; border-radius: 50%; background: var(--chat-signal); animation: signal 2s ease-in-out infinite; }
+.toolDetails { min-width: 0; border-top: 1px solid var(--border); }
+.toolDetailLabel { display: flex; align-items: center; justify-content: space-between; padding: 7px 12px; color: var(--muted-foreground); font-size: 11px; }
+.toolDetailLabel button { padding: 2px 5px; color: var(--primary-strong); }
+.toolCode { max-height: 45dvh; overflow: auto; margin: 0; padding: 10px 12px; background: color-mix(in srgb, var(--muted) 50%, var(--background)); white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--font-mono, monospace); font-size: 12px; line-height: 1.75; }
+.toolOutputHint { padding: 10px 12px; color: var(--muted-foreground); font-size: 12px; }
+@keyframes statusBreath { 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--chat-signal) 9%, transparent); opacity: 0.7; } }
 .operationsRail {
   min-width: 0;
   overflow-y: auto;
@@ -945,11 +1017,18 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .progressSignal,
-  .delegationPulse {
+  .delegationPulse,
+  .breathDot,
+  .statusOrb[data-live="true"] {
     animation: none;
   }
 }
 @media (max-width: 767px) {
+  .activityStatus { padding: 12px 14px; gap: 9px; }
+  .statusUpdated { margin-left: 0; width: 100%; }
+  .toolTrigger { gap: 6px; padding: 10px 8px; }
+  .toolState { max-width: 74px; white-space: normal; }
+  .entryRoles button { padding: 5px 10px; }
   .grid {
     grid-template-columns: minmax(0, 1fr);
   }

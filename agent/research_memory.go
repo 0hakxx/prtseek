@@ -100,6 +100,14 @@ type ResearchToolEvidence struct {
 	Truncated    bool   `json:"truncated"`
 }
 
+type researchToolCapture struct {
+	Tool      string `json:"tool"`
+	Input     string `json:"input"`
+	Result    string `json:"result"`
+	IsError   bool   `json:"is_error"`
+	Truncated bool   `json:"truncated"`
+}
+
 type researchRequestReceipt struct {
 	ID       string `json:"id"`
 	Hash     string `json:"hash"`
@@ -266,13 +274,52 @@ func (m *ResearchMemory) readState() (ResearchMemoryState, error) {
 		return s, errors.New("research state version or capacity is invalid; original file preserved")
 	}
 	if err := validateResearchState(s); err != nil {
-		return s, err
+		// Older Windows captures clipped code-page bytes before JSON converted
+		// them to UTF-8 replacement characters. Rebuild only that derived summary
+		// from its unchanged host capture; never discard or weaken evidence checks.
+		if !m.restoreLegacyObservationSummaries(&s) || validateResearchState(s) != nil {
+			return s, err
+		}
 	}
 	// Hand-edited or older files must not leak recognizable credentials via recall.
 	if researchContainsSecret(string(b)) {
 		return s, errors.New("research state contains possible plaintext credentials; refusing to expose it")
 	}
 	return s, nil
+}
+
+func (m *ResearchMemory) restoreLegacyObservationSummaries(s *ResearchMemoryState) bool {
+	restored := false
+	for i := range s.Observations {
+		ev := &s.Observations[i]
+		if len(ev.Summary) <= 700 {
+			continue
+		}
+		// A 600-byte legacy prefix can expand to at most 1800 UTF-8 bytes.
+		if len(ev.Summary) > 1900 || !strings.ContainsRune(ev.Summary, utf8.RuneError) || ev.Bytes < 0 || ev.Bytes > researchMaxCaptureBytes {
+			return false
+		}
+		p, err := m.safeResearchPath(ev.Path, true)
+		if err != nil {
+			return false
+		}
+		f, err := os.Open(p)
+		if err != nil {
+			return false
+		}
+		b, err := io.ReadAll(io.LimitReader(f, researchMaxCaptureBytes+1))
+		_ = f.Close()
+		if err != nil || int64(len(b)) != ev.Bytes || researchHash(b) != ev.SHA256 {
+			return false
+		}
+		var capture researchToolCapture
+		if strictResearchJSON(b, &capture) != nil || capture.Tool != ev.Tool || capture.IsError != ev.IsError {
+			return false
+		}
+		ev.Summary = researchClip(strings.Join(strings.Fields(capture.Result), " "), 600)
+		restored = true
+	}
+	return restored
 }
 
 func (m *ResearchMemory) Snapshot() (ResearchMemoryState, error) { return m.readState() }
@@ -392,6 +439,15 @@ func (m *ResearchMemory) save(s ResearchMemoryState) error {
 	}
 	if len(b) > researchMaxStateBytes {
 		return errors.New("research state capacity reached; original state preserved")
+	}
+	// Check the exact round-tripped representation before replacing a valid
+	// checkpoint. JSON normalizes invalid UTF-8 and can expand byte lengths.
+	var persisted ResearchMemoryState
+	if err := json.Unmarshal(b, &persisted); err != nil {
+		return err
+	}
+	if err := validateResearchState(persisted); err != nil {
+		return err
 	}
 	p, err := m.safeResearchPath(".research/state.json", false)
 	if err != nil {
@@ -697,13 +753,7 @@ func (m *ResearchMemory) ObserveToolContext(ctx context.Context, name string, in
 	}
 	cleanInput := researchRedactJSON(input)
 	cleanResult := researchRedactJSON([]byte(result))
-	payload := struct {
-		Tool      string `json:"tool"`
-		Input     string `json:"input"`
-		Result    string `json:"result"`
-		IsError   bool   `json:"is_error"`
-		Truncated bool   `json:"truncated"`
-	}{Tool: name, Input: researchClip(cleanInput, 4000), Result: researchClip(cleanResult, 24000), IsError: isError, Truncated: len(cleanInput) > 4000 || len(cleanResult) > 24000}
+	payload := researchToolCapture{Tool: name, Input: researchClip(cleanInput, 4000), Result: researchClip(cleanResult, 24000), IsError: isError, Truncated: len(cleanInput) > 4000 || len(cleanResult) > 24000}
 	b, err := json.Marshal(payload)
 	if err != nil {
 		return "", err
@@ -972,6 +1022,7 @@ func researchContextEntries(entries []ResearchMemoryEntry) []ResearchMemoryEntry
 }
 
 func researchClip(s string, n int) string {
+	s = strings.ToValidUTF8(s, "\uFFFD")
 	if len(s) <= n {
 		return s
 	}
@@ -1008,6 +1059,9 @@ func RedactResearchText(s string) string {
 func researchContainsSecret(s string) bool { return RedactResearchText(s) != s }
 
 func researchRedactJSON(raw []byte) string {
+	// Tool processes can emit an OEM code page rather than UTF-8. Normalize
+	// before hashing/clipping so persistence and in-memory limits agree.
+	raw = bytes.ToValidUTF8(raw, []byte("\uFFFD"))
 	var v any
 	if json.Unmarshal(raw, &v) != nil {
 		return RedactResearchText(string(raw))

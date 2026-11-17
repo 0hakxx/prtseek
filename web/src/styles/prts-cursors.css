@@ -1,0 +1,120 @@
+/* Native static cursors from PRTS v1.1.5. Credits: /cursors/prts/SOURCES.txt. */
+@media (hover: hover) and (pointer: fine) and (forced-colors: none) {
+  .prts-ui {
+    cursor:
+      url("/cursors/prts/default.png") 12 9,
+      auto;
+  }
+
+  .prts-ui
+    :is(
+      a,
+      button,
+      summary,
+      select,
+      [role="button"],
+      [role="link"],
+      [role="tab"],
+      [role="menuitem"],
+      [role="checkbox"],
+      [role="switch"],
+      input[type="checkbox"],
+      input[type="radio"],
+      .cursor-pointer
+    ) {
+    cursor:
+      url("/cursors/prts/pointer.png") 12 9,
+      pointer;
+  }
+
+  .prts-ui
+    :is(
+      textarea,
+      input:not([type]),
+      input[type="text"],
+      input[type="password"],
+      input[type="email"],
+      input[type="search"],
+      input[type="url"],
+      input[type="number"],
+      [contenteditable="true"],
+      .cursor-text
+    ) {
+    cursor:
+      url("/cursors/prts/text.png") 20 20,
+      text;
+  }
+
+  .prts-ui [data-slot="button"]:disabled,
+  .prts-ui
+    :is(
+      button:disabled,
+      input:disabled,
+      select:disabled,
+      textarea:disabled,
+      [aria-disabled="true"],
+      .cursor-not-allowed
+    ) {
+    cursor:
+      url("/cursors/prts/not-allowed.png") 12 9,
+      not-allowed;
+  }
+
+  .prts-ui button:disabled {
+    pointer-events: auto;
+  }
+
+  .prts-ui :is(button[aria-busy="true"], [aria-busy="true"], .cursor-wait) {
+    cursor:
+      url("/cursors/prts/wait.png") 20 20,
+      wait;
+  }
+
+  .prts-ui .cursor-progress {
+    cursor:
+      url("/cursors/prts/progress.png") 12 9,
+      progress;
+  }
+
+  .prts-ui :is(.cursor-move, .cursor-grab, .cursor-grabbing) {
+    cursor:
+      url("/cursors/prts/move.png") 20 20,
+      move;
+  }
+
+  .prts-ui :is(.cursor-col-resize, .cursor-ew-resize) {
+    cursor:
+      url("/cursors/prts/ew-resize.png") 20 20,
+      ew-resize;
+  }
+
+  .prts-ui :is(.cursor-row-resize, .cursor-ns-resize) {
+    cursor:
+      url("/cursors/prts/ns-resize.png") 20 20,
+      ns-resize;
+  }
+
+  .prts-ui .cursor-nwse-resize {
+    cursor:
+      url("/cursors/prts/nwse-resize.png") 20 20,
+      nwse-resize;
+  }
+
+  .prts-ui .cursor-nesw-resize {
+    cursor:
+      url("/cursors/prts/nesw-resize.png") 20 20,
+      nesw-resize;
+  }
+
+  .prts-ui .cursor-crosshair {
+    cursor:
+      url("/cursors/prts/crosshair.png") 20 20,
+      crosshair;
+  }
+
+  .prts-ui .cursor-help {
+    cursor:
+      url("/cursors/prts/help.png") 12 9,
+      help;
+  }
+}

@@ -46,7 +46,7 @@ function request(base, route, body, token) {
     const password = crypto.randomBytes(20).toString('hex');
     const initialized = await request(base, '/api/auth/init', { password });
     const loggedIn = initialized.token ? initialized : await request(base, '/api/auth/login', {username:'prtseek', password});
-    await request(base, '/api/conversations', {agent_key:'triage', title:'界面回归验证', mode:'ctf'}, loggedIn.token);
+    await request(base, '/api/conversations', {agent_key:'solve', title:'界面回归验证', mode:'ctf'}, loggedIn.token);
     browser = await chromium.launch({...(process.env.PRTSEEK_BROWSER_CHANNEL ? {channel:process.env.PRTSEEK_BROWSER_CHANNEL} : {}), headless:true});
     const context = await browser.newContext({viewport:{width:1440,height:960}, reducedMotion:'no-preference', colorScheme:'light'});
     await context.addInitScript(() => {
@@ -88,7 +88,7 @@ function request(base, route, body, token) {
       await page.locator('.conversation-sidebar').waitFor();
     }
     await login('first login boot');
-    await page.getByRole('button',{name:/^界面回归验证 triage/}).click();
+    await page.getByRole('button',{name:/^界面回归验证 解题/}).click();
     await page.locator('textarea').waitFor();
     await page.evaluate(() => {document.documentElement.classList.remove('dark');document.documentElement.dataset.themeMode='light';});
     async function colors(label) {

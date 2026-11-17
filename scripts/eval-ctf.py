@@ -70,7 +70,7 @@ class Client:
 
 
 def run_case(client, case, mode, profile, timeout):
-    conversation = client.request("/conversations", {"agent_key": "solver" if mode == "single" else "command", "llm_profile_id": profile, "title": f"CTF eval / {case['id']} / {mode}"})
+    conversation = client.request("/conversations", {"agent_key": "solve", "llm_profile_id": profile, "title": f"CTF eval / {case['id']} / {mode}"})
     cid = conversation["id"]
     started = time.monotonic()
     sent = False
@@ -80,7 +80,9 @@ def run_case(client, case, mode, profile, timeout):
                   "Verify the result against the supplied algorithm/checker. Save only the verified flag to answer.txt in your own workspace. "
                   "If materials are insufficient, report blocked and do not invent a flag. "
                   "Before finishing use report_outcome with the actual criterion, verification and evidence IDs. "
-                  "Keep work bounded; cancel unnecessary branches and collect their results.")
+                  "Keep work bounded; report verified once the supplied goal is met.")
+        prompt += (" Work directly without delegation for this single-agent comparison." if mode == "single"
+                   else " Delegate complementary solve branches only if useful for unresolved difficulty.")
         client.request(f"/conversations/{cid}/messages", {"message": prompt, "attachments": attachments})
         sent = True
         while True:

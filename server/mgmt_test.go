@@ -47,7 +47,10 @@ func TestMgmtAPI(t *testing.T) {
 		t.Fatalf("GET agents: %d", code)
 	}
 	ags, _ := out["agents"].([]any)
-	want := map[string]bool{"triage": true, "command": true, "solver": true, "writeup": true}
+	want := map[string]bool{"solve": true, "writeup": true}
+	if len(ags) != 2 {
+		t.Fatalf("only solve/writeup should be visible: %v", ags)
+	}
 	for _, raw := range ags {
 		delete(want, raw.(map[string]any)["key"].(string))
 	}
@@ -59,7 +62,7 @@ func TestMgmtAPI(t *testing.T) {
 	}
 	for _, body := range []map[string]string{{"agent_key": "triage"}, {"mode": "ctf", "agent_key": "command"}} {
 		code, out := do("POST", "/api/conversations", body)
-		if code != 200 || out["agent_key"] != body["agent_key"] || out["mode"] != "ctf" {
+		if code != 200 || out["agent_key"] != "solve" || out["mode"] != "ctf" {
 			t.Fatalf("CTF agent selection failed: %d %#v", code, out)
 		}
 	}

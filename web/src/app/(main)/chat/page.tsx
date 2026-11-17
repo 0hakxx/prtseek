@@ -6,6 +6,7 @@ import { ArrowUpIcon, BotIcon, ChevronDownIcon, ChevronRightIcon, Paperclip, Squ
 import { toast } from "sonner";
 
 import styles from "@/components/chat-workspace.module.css";
+import { ActivityStatusBar } from "@/components/activity-status";
 import { ConversationList } from "@/components/conversation-list";
 import { ConversationOverview } from "@/components/conversation-overview";
 import { ReasoningControl } from "@/components/reasoning-control";
@@ -18,14 +19,13 @@ import { auth } from "@/lib/auth";
 import { type PendingChat, type UploadedFile, uploadChatFiles } from "@/lib/chat-attachments";
 import { shouldSubmitOnKey, useChatSendMode } from "@/lib/chat-send-mode";
 import { executionLabel, outcomeLabel } from "@/lib/ctf-status";
+import { ENTRY_ROLES, entryRoleLabel } from "@/lib/entry-roles";
 import { getLocalStorageValue, setLocalStorageValue } from "@/lib/local-storage.client";
 import { hideResearchEvidenceAnnotation } from "@/lib/research-evidence";
 import type { Activity, Agent, Conversation, LLMProfile } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 import { type ConversationOverview as Overview, type Delegation, type DelegationActivity, workflowsApi } from "@/lib/workflows-api";
-
-const legacyAgentKeys = new Set(["goals", "planner", "mainagent", "worker", "reporter", "ctf_triage", "ctf_planner", "ctf_worker", "ctf_verifier", "ctf_writeup"]);
 
 // Composer is the shared bottom input (textarea grows to a cap, Enter sends,
 // Shift+Enter newlines) — the same affordance across DraftChat and ChatView.
@@ -149,26 +149,12 @@ function Composer({
 }
 
 function AgentPicker({ agents, value, onChange, disabled }: { agents: Agent[]; value: string; onChange: (key: string) => void; disabled?: boolean }) {
-  const [open, setOpen] = React.useState(false);
-  const selected = agents.find((agent) => agent.key === value);
   return (
-    <Popover open={open} onOpenChange={disabled ? undefined : setOpen}>
-      <PopoverTrigger asChild>
-        <button type="button" disabled={disabled} className={cn(styles.profileButton, "disabled:pointer-events-none disabled:opacity-40")}>
-          <BotIcon className="size-3.5 shrink-0" />
-          <span className="max-w-48 truncate">{selected?.name || value || "选择 Agent"}</span>
-          <ChevronDownIcon className="size-3" />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className={cn(styles.profileMenu, "w-72 max-w-[calc(100vw-24px)]")}>
-        <p className={cn(styles.eyebrow, "px-2 py-2")}>AGENT / 入口角色</p>
-        {agents.map((agent) => (
-          <button key={agent.key} type="button" className={cn(styles.profileOption, agent.key === value && styles.profileOptionActive)} onClick={() => { onChange(agent.key); setOpen(false); }}>
-            <span className="text-sm">{agent.name}</span><span className="text-muted-foreground text-xs">{agent.key}{agent.description ? ` · ${agent.description}` : ""}</span>
-          </button>
-        ))}
-      </PopoverContent>
-    </Popover>
+    <fieldset className={styles.entryRoles} aria-label="任务类型">
+      {ENTRY_ROLES.map((role) => <button key={role.key} type="button" aria-pressed={value === role.key}
+        disabled={disabled === true || !agents.some((agent) => agent.key === role.key && agent.enabled)}
+        title={role.description} onClick={() => onChange(role.key)}>{role.name}</button>)}
+    </fieldset>
   );
 }
 
@@ -288,7 +274,7 @@ function DraftChat({
   profiles: LLMProfile[];
   onStarted: (c: Conversation, pending?: PendingChat) => void;
 }) {
-  const [agentKey, setAgentKey] = React.useState("triage");
+  const [agentKey, setAgentKey] = React.useState("solve");
   const [llmProfileId, setLlmProfileId] = React.useState<number | null>(null);
   const [effort, setEffort] = React.useState("");
   const [input, setInput] = React.useState("");
@@ -336,7 +322,7 @@ function DraftChat({
           onChange={setInput}
           onSend={send}
           disabled={sending || !agentKey}
-          placeholder="输入 CTF 题目、附件线索、目标或 flag 格式…"
+          placeholder={agentKey === "writeup" ? "指定已有会话或附上材料，整理成 WP…" : "输入题目、附件线索或 flag 格式…"}
           files={files}
           onFilesChange={setFiles}
         />
@@ -369,11 +355,11 @@ function delegationActivityLabel(activity: DelegationActivity) {
 function DelegationConsole({ delegations }: { delegations: Delegation[] }) {
   const activeCount = delegations.filter((job) => job.running || job.state === "running").length;
   return (
-    <section className={styles.delegationConsole} aria-label="子 Agent 动态">
+    <section className={styles.delegationConsole} aria-label="并行任务动态">
       <div className={styles.delegationHeading}>
         <div>
-          <span className={styles.delegationCode}>FIELD OPERATORS / 实时状态</span>
-          <strong>子 Agent</strong>
+          <span className={styles.delegationCode}>PARALLEL / 并行研究</span>
+          <strong>并行任务</strong>
         </div>
         <span className={styles.delegationCount} data-live={activeCount > 0}>
           <span className={styles.delegationCountDot} />
@@ -388,7 +374,7 @@ function DelegationConsole({ delegations }: { delegations: Delegation[] }) {
               <summary>
                 <span className={live ? styles.delegationPulse : styles.delegationMark} />
                 <BotIcon className="size-3.5 shrink-0" />
-                <span className={styles.delegationAgent}>{job.agent_key}</span>
+                <span className={styles.delegationAgent}>{entryRoleLabel(job.agent_key)}</span>
                 <span className={styles.delegationState} data-live={live}>
                   {delegationStateLabel(job.state, job.running)}
                 </span>
@@ -412,7 +398,7 @@ function DelegationConsole({ delegations }: { delegations: Delegation[] }) {
                     ))}
                   </ol>
                 ) : (
-                  <p className={styles.delegationEmpty}>已分派，等待 Worker 回传第一条动态。</p>
+                  <p className={styles.delegationEmpty}>已分派，等待解题任务回传第一条动态。</p>
                 )}
                 <a className={styles.delegationLink} href={`/chat?c=${job.id}`} target="_blank" rel="noopener noreferrer">
                   查看完整子会话 ↗
@@ -447,6 +433,7 @@ function ChatView({
   const [files, setFiles] = React.useState<File[]>(initial?.files ?? []);
   const uploads = React.useRef<UploadedFile[]>(initial?.uploads ?? []);
   const [running, setRunning] = React.useState(!!conv.running);
+  const [statusLoading, setStatusLoading] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
   const [hasMore, setHasMore] = React.useState(false);
   const [loadingOlder, setLoadingOlder] = React.useState(false);
@@ -488,8 +475,9 @@ function ChatView({
           setRunning(result.running);
         }
         setError("");
+        setStatusLoading(false);
       } catch (e) {
-        if (live) setError((e as Error).message);
+        if (live) { setError((e as Error).message); setStatusLoading(false); }
       } finally {
         if (live) timer = setTimeout(() => void poll(), document.hidden ? 10000 : active ? 1000 : 3000);
       }
@@ -534,6 +522,7 @@ function ChatView({
       setInput("");
       setFiles([]);
       setRunning(true);
+      setStatusLoading(true);
       uploads.current = [];
       follow.current = true;
     } catch (e) {
@@ -571,10 +560,10 @@ function ChatView({
     <div className={styles.chatSplit} data-ops={delegations.length > 0 || undefined}>
       <main className={styles.chatMain}>
       <div className={styles.missionBar}>
-        <span className={styles.missionEyebrow}>CTF CONTROL / SESSION #{conv.id}</span>
-        <span className={styles.missionRole}>{conv.agent_key}</span>
-        <span className={styles.missionRun} data-live={running}>{running ? "● 运行中" : "待命"}</span>
+        <span className={styles.missionEyebrow}>SESSION #{conv.id}</span>
+        <span className={styles.missionRole}>{entryRoleLabel(conv.agent_key)}</span>
       </div>
+      <ActivityStatusBar activity={messages} live={running} state={overview?.state} outcome={overview?.outcome.state} startedMs={overview?.started_ms} connectionError={!!error} loading={statusLoading} />
       <ConversationOverview id={conv.id} overview={overview} />
       {error && (
         <p role="alert" className="px-6 py-2 text-sm text-destructive">
@@ -594,7 +583,7 @@ function ChatView({
               加载更早记录
             </Button>
           )}
-          <Transcript activity={messages} live={running} chat fetchDetail={fetchDetail} />
+          <Transcript activity={messages} live={running && !error && !statusLoading} chat fetchDetail={fetchDetail} />
           <div ref={end} />
         </div>
       </div>
@@ -652,7 +641,7 @@ export default function ChatPage() {
     const version = ++request.current;
     setLoading(true);
     try {
-      const items = (await api.conversations()).filter((item) => !legacyAgentKeys.has(item.agent_key));
+      const items = await api.conversations();
       if (version !== request.current) return;
       setConversations(items);
       const current = items.find((item) => item.id === activeId.current) ?? null;
@@ -687,7 +676,7 @@ export default function ChatPage() {
         .catch((e) => toast.error(e.message));
     };
     refreshProfiles();
-    api.agents().then((items) => setAgents(items.filter((agent) => !legacyAgentKeys.has(agent.key)))).catch((e) => toast.error(e.message));
+    api.agents().then((items) => setAgents(items.filter((agent) => ENTRY_ROLES.some((role) => role.key === agent.key)))).catch((e) => toast.error(e.message));
     window.addEventListener("popstate", restore);
     window.addEventListener("prtseek-models-updated", refreshProfiles);
     return () => {

@@ -44,7 +44,7 @@ export function PrtsBoot() {
       }}
     >
       <div className="prts-boot-emblem" aria-hidden="true">
-        <PrtsMark className="prts-boot-mark" />
+        <PrtsMark className="prts-boot-mark" light />
         <span>PRTS / INITIALIZING</span>
       </div>
       <div className="prts-boot-wordmark" aria-hidden="true">
