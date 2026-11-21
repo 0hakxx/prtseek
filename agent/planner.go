@@ -343,7 +343,7 @@ const plannerDefaultTmpl = `你是一个网络安全平台授权渗透测试系�
 不重复、不硬凑；但目标未达成、又有未覆盖且更深的打法时，该派就派。简洁、聚焦、高效。`
 
 func plannerSystem(goal, dataDir, workDir string) string {
-	body := renderSystem("planner", plannerDefaultTmpl, PlannerVars{Goal: goal, DataDir: dataDir, Now: nowStr()})
+	body := renderSystem("planner", plannerDefaultTmpl, PlannerVars{Goal: goal, DataDir: dataDir, Now: nowStr(), NowTurn: nowStr()})
 	return body + artifactSpec(workDir)
 }
 
