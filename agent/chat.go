@@ -99,7 +99,14 @@ func chatWorkDirSpec(workDir string) string {
 // chatSystem renders the DB-managed prompt body for agentKey. Custom agents have
 // no per-key in-code default, so DefaultAssistantPrompt is the render fallback.
 func chatSystem(agentKey, dataDir, workDir string) string {
-	prompt := renderSystem(agentKey, DefaultAssistantPrompt, chatVars{DataDir: dataDir, Now: nowStr()})
+	return chatSystemFor(agentKey, dataDir, workDir, "")
+}
+
+// chatSystemFor renders the body for one conversation: {{.Now}} is pinned to that
+// session's start stamp so the system prefix stays byte-identical across turns
+// (prefix cache), while {{.NowTurn}} still carries the live time.
+func chatSystemFor(agentKey, dataDir, workDir, sessionID string) string {
+	prompt := renderSystem(agentKey, DefaultAssistantPrompt, chatVars{DataDir: dataDir, Now: sessionNow(sessionID), NowTurn: nowStr()})
 	if agentKey == "triage" {
 		prompt += "\n\n协作约定：材料足够且几步可解决时直接 delegate_agent 给 solver；需要多个互补方向时再交给 command。缺少题目或附件时明确缺口，不能只用文字声称已经分工。"
 	}
@@ -125,7 +132,7 @@ func chatTodos(ctf bool) *actool.TodoStore {
 // DataDir (server data root) + Now (server wall-clock, refreshed each turn) are the
 // universal ones; any other {{.X}} fails to render and falls back to
 // DefaultAssistantPrompt.
-type chatVars struct{ DataDir, Now string }
+type chatVars struct{ DataDir, Now, NowTurn string }
 
 // Chat runs ONE turn of a conversation with the agent identified by agentKey,
 // resuming prior history keyed by sessionID. maxTurns is the per-turn agent step
@@ -181,7 +188,7 @@ func (c *ChatAgent) Chat(ctx context.Context, agentKey, sessionID, message strin
 		tools = append(tools, c.extraToolsFn(ctx, agentKey)...)
 	}
 
-	system, boundary := deferredSystem(chatSystem(agentKey, c.workDir, sessionWorkDir)+responseLanguageBlock(ctx), def)
+	system, boundary := deferredSystem(chatSystemFor(agentKey, c.workDir, sessionWorkDir, sessionID)+responseLanguageBlock(ctx), def)
 	opts := agentcore.Options{
 		Provider:               budgetProvider(ctx, meterProvider(ctx, c.prov)),
 		SystemPrompt:           system,

@@ -2,6 +2,7 @@ package agent
 
 import (
 	"bytes"
+	"sync"
 	"text/template"
 	"time"
 )
@@ -15,16 +16,58 @@ var PromptOverride func(agentKey string) (string, bool)
 // Prompt-variable structs — fields mirror each agent's catalog (docs §5a) so a
 // user template referencing a catalog variable renders; referencing anything else
 // fails template execution and falls back to the built-in default.
-type PlannerVars struct{ Goal, Scope, AssetSummary, DataDir, Now string }
-type WorkerVars struct{ ProxyAddr, WorkerName, DataDir, Now string }
-type MainVars struct{ Goal, AssetSummary, FindingsSummary, DataDir, Now string }
-type GoalsVars struct{ EngagementDescription, DataDir, Now string }
+type PlannerVars struct{ Goal, Scope, AssetSummary, DataDir, Now, NowTurn string }
+type WorkerVars struct{ ProxyAddr, WorkerName, DataDir, Now, NowTurn string }
+type MainVars struct{ Goal, AssetSummary, FindingsSummary, DataDir, Now, NowTurn string }
+type GoalsVars struct{ EngagementDescription, DataDir, Now, NowTurn string }
 
-// nowStr is the server-local wall-clock string exposed as the universal {{.Now}}
-// prompt variable. renderSystem runs on every agent turn/round, so this is fresh
-// each run — a prompt can subtract it from a fixed start stamp to reason about
-// elapsed time (e.g. a timed benchmark's "last N hours" window).
-func nowStr() string { return time.Now().Format("2006-01-02 15:04:05 MST") }
+// stampLayout is the wall-clock format shared by {{.Now}} and {{.NowTurn}}.
+const stampLayout = "2006-01-02 15:04:05 MST"
+
+// clockNow is the package clock; tests replace it to pin {{.NowTurn}}.
+var clockNow = time.Now
+
+// nowStr is the server-local wall-clock string rendered fresh on every call. It
+// backs {{.NowTurn}} only: the system prompt prefix must stay byte-identical across
+// turns or every round re-pays the full prompt (no prefix/context cache hit).
+func nowStr() string { return clockNow().Format(stampLayout) }
+
+// sessionStamps pins {{.Now}} per conversation. The stamp is taken on the first turn
+// that renders a session's prompt and reused afterwards, so the cached prefix holds
+// for the whole conversation. Entries are dropped wholesale at the cap: this is a
+// cache-key registry, not state worth evicting individually.
+var (
+	sessionMu     sync.Mutex
+	sessionStamps = map[string]string{}
+)
+
+const maxSessionStamps = 4096
+
+// sessionNow returns the conversation start stamp for sessionID. An empty session
+// (one-shot renders, template preview) gets the live time instead of a stable one.
+func sessionNow(sessionID string) string {
+	stamp := nowStr()
+	if sessionID == "" {
+		return stamp
+	}
+	sessionMu.Lock()
+	defer sessionMu.Unlock()
+	if known, ok := sessionStamps[sessionID]; ok {
+		return known
+	}
+	if len(sessionStamps) >= maxSessionStamps {
+		clear(sessionStamps)
+	}
+	sessionStamps[sessionID] = stamp
+	return stamp
+}
+
+// resetSessionStamps clears the registry; tests only.
+func resetSessionStamps() {
+	sessionMu.Lock()
+	defer sessionMu.Unlock()
+	clear(sessionStamps)
+}
 
 // renderSystem returns the rendered system-prompt BODY (段 [A]) for agentKey.
 // Precedence: the DB-stored template (if any) over the built-in default template

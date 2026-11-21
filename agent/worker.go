@@ -288,7 +288,7 @@ func ensureRunDir(base string, taskID, intentID int64) string {
 func cmdOutDir(dir string) string { return filepath.Join(dir, "cmd-output") }
 
 func workerSystem(proxyAddr, caCert, dataDir, runDir string) string {
-	body := renderSystem("worker", workerDefaultTmpl, WorkerVars{ProxyAddr: proxyAddr, DataDir: dataDir, Now: nowStr()})
+	body := renderSystem("worker", workerDefaultTmpl, WorkerVars{ProxyAddr: proxyAddr, DataDir: dataDir, Now: nowStr(), NowTurn: nowStr()})
 	// caCert is present only when the recording MITM is on, which is exactly when
 	// the traffic_* tools are registered — so it gates the traffic-tool note.
 	// Optional finding guidance is added for every role after tool resolution.
