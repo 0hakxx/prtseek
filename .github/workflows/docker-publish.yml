@@ -1,0 +1,58 @@
+name: Docker Publish
+# master 푸시·태그 푸시 시 이미지를 빌드해 ghcr.io/<owner>/prtseek 로 푸시한다.
+# 수동 실행(workflow_dispatch)에서 mirror_base=true 를 주면 베이스 이미지도
+# ghcr.io/<owner>/mirror/* 로 미러링한다. 별도 시크릿 없이 GITHUB_TOKEN 만 사용한다.
+on:
+  push:
+    branches: [master]
+    tags: ['prtseek-v*']
+  workflow_dispatch:
+    inputs:
+      mirror_base:
+        description: '베이스 이미지(node/golang/python)를 ghcr 미러로 복사'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  mirror-base:
+    if: github.event_name == 'workflow_dispatch' && inputs.mirror_base
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - run: MIRROR="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/mirror" bash scripts/mirror-base-images.sh
+
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/prtseek
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=tag
+            type=sha,format=short
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

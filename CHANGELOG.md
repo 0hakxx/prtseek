@@ -55,7 +55,7 @@
 
 ## 2026-11-11 — CTF 协作、交付与模型配置
 
-对应提交：[d1bc490](https://github.com/Team-intN18-SoybeanSeclab/prtseek/commit/d1bc490)。
+对应提交：[d1bc490](https://github.com/0hakxx/prtseek/commit/d1bc490)。
 
 - 新增异步批量派发、等待和取消子任务，父任务可先利用已经完成的结果；退出前收取或取消剩余任务，避免旧任务与新一轮争用会话。
 - 主任务与子任务共享每轮 200 次逻辑模型调用预算，包含压缩和继续请求；限制并发数、任务总数和派发深度。
@@ -66,7 +66,7 @@
 
 ## 2026-11-11 — 界面与持续集成修复
 
-对应提交：[6eac0b8](https://github.com/Team-intN18-SoybeanSeclab/prtseek/commit/6eac0b8)、[3ed4871](https://github.com/Team-intN18-SoybeanSeclab/prtseek/commit/3ed4871)、[2b5edfd](https://github.com/Team-intN18-SoybeanSeclab/prtseek/commit/2b5edfd)。
+对应提交：[6eac0b8](https://github.com/0hakxx/prtseek/commit/6eac0b8)、[3ed4871](https://github.com/0hakxx/prtseek/commit/3ed4871)、[2b5edfd](https://github.com/0hakxx/prtseek/commit/2b5edfd)。
 
 - 恢复开机动画，默认主题改为跟随系统，统一对话区、弹窗和侧栏的明暗色调。
 - 修复跨平台检查中的 hook 行尾问题，并验证实际使用的前端路由。
@@ -74,7 +74,7 @@
 
 ## 2026-11-09 — CTF 工作台初始化
 
-对应提交：[5e7ca69](https://github.com/Team-intN18-SoybeanSeclab/prtseek/commit/5e7ca69)、[6b8bb3d](https://github.com/Team-intN18-SoybeanSeclab/prtseek/commit/6b8bb3d)、[909bac1](https://github.com/Team-intN18-SoybeanSeclab/prtseek/commit/909bac1)。
+对应提交：[5e7ca69](https://github.com/0hakxx/prtseek/commit/5e7ca69)、[6b8bb3d](https://github.com/0hakxx/prtseek/commit/6b8bb3d)、[909bac1](https://github.com/0hakxx/prtseek/commit/909bac1)。
 
 - 基于上游 ARTEX 整理 CTF 工作台，默认角色调整为 `triage`、`command`、`solver`、`writeup`。
 - 简化界面，保留 Agent、模型、工具、设置、文件工作区和技能库入口。

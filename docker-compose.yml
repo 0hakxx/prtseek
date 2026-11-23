@@ -1,7 +1,14 @@
 services:
   prtseek:
-    build: .
-    image: prtseek:local
+    # 로컬 빌드가 기본이다. 미리 빌드해 둔 레지스트리 이미지를 쓰려면
+    #   PRTSEEK_IMAGE=ghcr.io/0hakxx/prtseek:latest docker compose up -d --no-build
+    build:
+      context: .
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-node:22-bookworm-slim}
+        GO_IMAGE: ${GO_IMAGE:-golang:1.26.10-bookworm}
+        RUNTIME_IMAGE: ${RUNTIME_IMAGE:-python:3.12-slim-bookworm}
+    image: ${PRTSEEK_IMAGE:-prtseek:local}
     ports:
       - "127.0.0.1:8787:8787"
       - "127.0.0.1:8788:8788"
