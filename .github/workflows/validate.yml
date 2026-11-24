@@ -1,5 +1,11 @@
 name: Validate
 on: [push, pull_request, workflow_dispatch]
+# 상위(Team-intN18/Autumn-27/RuoJi6) 저장소가 삭제되어도 CI 가 깨지지 않도록 Go 테스트/빌드는
+# 저장소에 커밋된 vendor/ 를 쓰고 proxy.golang.org 에 나가지 않는다. 의존성 업데이트가 필요하면
+# PR 안에서만 GOFLAGS/GOPROXY 를 임시로 바꾼 뒤 vendor/ 를 재생성해 커밋한다.
+env:
+  GOFLAGS: -mod=vendor
+  GOPROXY: off
 jobs:
   native:
     strategy:
