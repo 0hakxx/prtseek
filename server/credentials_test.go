@@ -157,7 +157,7 @@ func TestCredentialProcessingFlowBindingAndScopes(t *testing.T) {
 	// A prose credential invokes the isolated model exactly once, with usage
 	// attributed to the dedicated lane, even when body recording is disabled.
 	in.Title = "prose fixture"
-	in.Content = "qa-user 的密码为 qa-pass-321"
+	in.Content = "qa-user 의 비밀번호는 qa-pass-321"
 	prose, err := s.m.pg.RecordIntelligence(t.Context(), taskID, 0, "fixture", in)
 	if err != nil {
 		t.Fatal(err)
@@ -220,7 +220,7 @@ func TestCredentialDisableCancelsInFlightModel(t *testing.T) {
 	}()
 	on := true
 	_ = s.m.pg.SetIntelligenceSettings(t.Context(), &on, &on, nil)
-	item, err := s.m.pg.RecordIntelligence(t.Context(), taskID, 0, "fixture", db.IntelligenceInput{Kind: "credential", Title: "cancel fixture", Content: "qa-user 的密码为 qa-pass-321", Evidence: "local fixture", Confidence: "observed"})
+	item, err := s.m.pg.RecordIntelligence(t.Context(), taskID, 0, "fixture", db.IntelligenceInput{Kind: "credential", Title: "cancel fixture", Content: "qa-user 의 비밀번호는 qa-pass-321", Evidence: "local fixture", Confidence: "observed"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -278,7 +278,7 @@ func TestCredentialFailedModelCanRetry(t *testing.T) {
 	defer s.m.pg.SetIntelligenceSettings(t.Context(), &oldRecord, &oldAgent, &oldBind)
 	on, off := true, false
 	_ = s.m.pg.SetIntelligenceSettings(t.Context(), &on, &on, &off)
-	item, err := s.m.pg.RecordIntelligence(t.Context(), taskID, 0, "fixture", db.IntelligenceInput{Kind: "credential", Title: "retry fixture", Content: "qa-user 的密码为 qa-pass-321", Evidence: "local fixture", Confidence: "observed"})
+	item, err := s.m.pg.RecordIntelligence(t.Context(), taskID, 0, "fixture", db.IntelligenceInput{Kind: "credential", Title: "retry fixture", Content: "qa-user 의 비밀번호는 qa-pass-321", Evidence: "local fixture", Confidence: "observed"})
 	if err != nil {
 		t.Fatal(err)
 	}

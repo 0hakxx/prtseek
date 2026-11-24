@@ -64,14 +64,14 @@ func (s *Server) sendRepeater(w http.ResponseWriter, r *http.Request) {
 	var in repeaterSendRequest
 	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, repeaterMaxBody))
 	if err := dec.Decode(&in); err != nil {
-		writeErr(w, http.StatusBadRequest, "请求体无效")
+		writeErr(w, http.StatusBadRequest, "유효하지 않은 요청 본문")
 		return
 	}
 	// Reject a second JSON value (or oversized trailing data) instead of silently
 	// accepting bytes beyond the documented 2 MiB request limit.
 	var extra any
 	if err := dec.Decode(&extra); err != io.EOF {
-		writeErr(w, http.StatusBadRequest, "请求体无效")
+		writeErr(w, http.StatusBadRequest, "유효하지 않은 요청 본문")
 		return
 	}
 
@@ -80,33 +80,33 @@ func (s *Server) sendRepeater(w http.ResponseWriter, r *http.Request) {
 		method = strings.ToUpper(strings.TrimSpace(*in.Method))
 	}
 	if method == "" {
-		writeErr(w, http.StatusBadRequest, "HTTP 方法不能为空")
+		writeErr(w, http.StatusBadRequest, "HTTP 메서드는 비워 둘 수 없습니다")
 		return
 	}
 	switch method {
 	case http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch,
 		http.MethodDelete, http.MethodHead, http.MethodOptions:
 	default:
-		writeErr(w, http.StatusBadRequest, "不支持的 HTTP 方法")
+		writeErr(w, http.StatusBadRequest, "지원하지 않는 HTTP 메서드")
 		return
 	}
 
 	switch in.HTTPVersion {
 	case "", "HTTP/1.1", "HTTP/2.0":
 	default:
-		writeErr(w, http.StatusBadRequest, "当前支持 HTTP/1.1 和 HTTP/2.0")
+		writeErr(w, http.StatusBadRequest, "현재 HTTP/1.1 과 HTTP/2.0 을 지원합니다")
 		return
 	}
 
 	rawURL := strings.TrimSpace(in.URL)
 	if rawURL == "" {
-		writeErr(w, http.StatusBadRequest, "url 必填")
+		writeErr(w, http.StatusBadRequest, "url 은 필수입니다")
 		return
 	}
 	u, err := url.Parse(rawURL)
 	if err != nil || u.Host == "" || u.Hostname() == "" ||
 		!strings.EqualFold(u.Scheme, "http") && !strings.EqualFold(u.Scheme, "https") {
-		writeErr(w, http.StatusBadRequest, "仅支持绝对 http/https URL")
+		writeErr(w, http.StatusBadRequest, "절대 http/https URL 만 지원합니다")
 		return
 	}
 	// This check is needed even when a proxy is used: the proxy must remain usable
@@ -139,7 +139,7 @@ func (s *Server) sendRepeater(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, method, u.String(), body)
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, "构造请求失败")
+		writeErr(w, http.StatusBadRequest, "요청 구성 실패")
 		return
 	}
 	for key, value := range in.Headers {
@@ -186,13 +186,13 @@ func (s *Server) sendRepeater(w http.ResponseWriter, r *http.Request) {
 		Transport: transport,
 		CheckRedirect: func(next *http.Request, via []*http.Request) error {
 			if len(via) >= 10 {
-				return errors.New("重定向次数过多")
+				return errors.New("리디렉션 횟수가 너무 많습니다")
 			}
 			if err := repeaterCheckURL(next.URL); err != nil {
 				return err
 			}
 			if len(via) > 0 && !strings.EqualFold(next.URL.Host, via[0].URL.Host) {
-				return fmt.Errorf("拒绝跨主机重定向（%s → %s）", via[0].URL.Host, next.URL.Host)
+				return fmt.Errorf("교차 호스트 리디렉션을 거부합니다(%s → %s)", via[0].URL.Host, next.URL.Host)
 			}
 			return nil
 		},
@@ -227,7 +227,7 @@ func (s *Server) sendRepeater(w http.ResponseWriter, r *http.Request) {
 		out.Body = repeaterBodyText(data)
 		out.BodyBytes = len(data)
 		if readErr != nil && !errors.Is(readErr, io.EOF) {
-			out.Error = "读取响应失败: " + readErr.Error()
+			out.Error = "응답 읽기 실패: " + readErr.Error()
 		}
 	}
 	out.ElapsedMs = time.Since(started).Milliseconds()
@@ -314,11 +314,11 @@ func repeaterCheckURL(u *url.URL) error {
 		var ok bool
 		ip, ok = repeaterParseLegacyIPv4(host)
 		if !ok {
-			return fmt.Errorf("拒绝无法解析的数字主机地址 %q", host)
+			return fmt.Errorf("해석할 수 없는 숫자 호스트 주소 %q 를 거부합니다", host)
 		}
 	}
 	if strings.EqualFold(host, "localhost") || (ip != nil && repeaterIsBlockedDialIP(ip)) {
-		return fmt.Errorf("拒绝访问本机/链路本地地址（如确需访问本机服务，设置 %s=1）", repeaterAllowLocalEnv)
+		return fmt.Errorf("로컬/링크 로컬 주소 접근을 거부합니다(정말 로컬 서비스에 접근해야 한다면 %s=1 을 설정하세요)", repeaterAllowLocalEnv)
 	}
 	return nil
 }
@@ -422,10 +422,10 @@ func repeaterBlockSensitiveDial(_, address string, _ syscall.RawConn) error {
 	}
 	ip := net.ParseIP(host)
 	if ip == nil {
-		return fmt.Errorf("无法解析目标地址 %q", host)
+		return fmt.Errorf("대상 주소 %q 를 해석할 수 없습니다", host)
 	}
 	if repeaterIsBlockedDialIP(ip) {
-		return fmt.Errorf("拒绝访问本机/链路本地地址 %s（如确需访问本机服务，设置 %s=1）", ip, repeaterAllowLocalEnv)
+		return fmt.Errorf("로컬/링크 로컬 주소 %s 접근을 거부합니다(정말 로컬 서비스에 접근해야 한다면 %s=1 을 설정하세요)", ip, repeaterAllowLocalEnv)
 	}
 	return nil
 }
@@ -440,7 +440,7 @@ func repeaterRedactError(err error) string {
 		if urlErr.Err != nil {
 			return fmt.Sprintf("%s %s: %s", urlErr.Op, host, urlErr.Err)
 		}
-		return fmt.Sprintf("%s %s: 未知错误", urlErr.Op, host)
+		return fmt.Sprintf("%s %s: 알 수 없는 오류", urlErr.Op, host)
 	}
 	return err.Error()
 }

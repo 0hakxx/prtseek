@@ -7,8 +7,8 @@ import (
 
 func TestCTFRoleMethodsStayDistinct(t *testing.T) {
 	for _, tc := range []struct{ key, marker string }{
-		{"triage", "材料清点"},
-		{"command", "停止条件"},
+		{"triage", "자료 점검"},
+		{"command", "중지 조건"},
 		{"solver", "Crypto"},
 		{"writeup", "EXP"},
 	} {

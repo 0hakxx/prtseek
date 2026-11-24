@@ -87,7 +87,7 @@ test("persisted response bodies and histories are capped; live state is unchange
 
 test("serialize/deserialize preserves drafts, groups, active tab, source and response", () => {
   let workspace = defaultWorkspace();
-  workspace.groups.push({ id: "other", name: "验证", collapsed: true });
+  workspace.groups.push({ id: "other", name: "검증", collapsed: true });
   workspace = seedWorkspace(
     workspace,
     { method: "post", url: "https://example.test/path", body: "payload", headersText: "Host: override" },
@@ -114,7 +114,7 @@ test("missing, corrupt and malformed storage recover a default group and empty t
   ]) {
     const recovered = deserializeWorkspace(raw);
     assert.equal(recovered.version, 1);
-    assert.equal(recovered.groups[0].name, "默认");
+    assert.equal(recovered.groups[0].name, "기본");
     assert.equal(recovered.tabs.length, 1);
     assert.equal(recovered.tabs[0].title, "Tab 1");
     assert.equal(recovered.tabs[0].url, "");
@@ -130,10 +130,10 @@ test("seeding always creates a new active tab in default or specified group", ()
   assert.equal(seeded.tabs[1].groupId, "default");
   assert.equal(seeded.tabs[1].title, "POST example.test:8443");
   assert.equal(seeded.activeTabId, seeded.tabs[1].id);
-  seeded.groups.push({ id: "custom", name: "验证", collapsed: true });
-  const custom = seedWorkspace(seeded, {}, { label: "证据" }, { groupId: "custom" });
+  seeded.groups.push({ id: "custom", name: "검증", collapsed: true });
+  const custom = seedWorkspace(seeded, {}, { label: "증거" }, { groupId: "custom" });
   assert.equal(custom.tabs[2].groupId, "custom");
-  assert.equal(custom.tabs[2].title, "证据");
+  assert.equal(custom.tabs[2].title, "증거");
   assert.equal(custom.groups[1].collapsed, false);
   const background = addTab(custom, {}, { activate: false, groupId: "missing" });
   assert.equal(background.activeTabId, custom.activeTabId);
@@ -150,7 +150,7 @@ test("budget removes globally oldest history first then strips responses, preser
     saved.tabs.map((tab) => tab.history.map((item) => item.id)),
     [["3"], ["4", "2"]],
   );
-  workspace.tabs[0].response = response("中".repeat(MAX_RESPONSE_CHARS));
+  workspace.tabs[0].response = response("한".repeat(MAX_RESPONSE_CHARS));
   workspace.tabs[1].response = response("x".repeat(MAX_RESPONSE_CHARS));
   workspace.tabs[0].body = "keep this request";
   const stripped = JSON.parse(serializeWorkspace(workspace, 3000));
@@ -161,21 +161,21 @@ test("budget removes globally oldest history first then strips responses, preser
   let large = defaultWorkspace();
   for (let id = 0; id < 5; id++) large = addTab(large);
   for (const tab of large.tabs) {
-    tab.response = response("中".repeat(MAX_RESPONSE_CHARS));
-    tab.history = [entry(1, "中".repeat(MAX_RESPONSE_CHARS))];
+    tab.response = response("한".repeat(MAX_RESPONSE_CHARS));
+    tab.history = [entry(1, "한".repeat(MAX_RESPONSE_CHARS))];
   }
   assert.ok(serializeWorkspace(large).length * 2 <= MAX_STORAGE_BYTES);
 });
 
 test("storage cap counts UTF-16 bytes for ASCII, Chinese and surrogate pairs", () => {
-  for (const text of ["x", "中", "😀"]) {
+  for (const text of ["x", "한", "😀"]) {
     let workspace = defaultWorkspace();
     for (let index = 0; index < 5; index++) workspace = addTab(workspace);
     for (const tab of workspace.tabs) {
       const body = text.repeat(MAX_RESPONSE_CHARS).slice(0, MAX_RESPONSE_CHARS);
       tab.response = response(body);
       tab.history = [entry(1, body)];
-      tab.body = `保留草稿 ${text}`;
+      tab.body = `초안 유지 ${text}`;
     }
     assert.ok(JSON.stringify(workspace).length * 2 > MAX_STORAGE_BYTES);
     const json = serializeWorkspace(workspace);
@@ -345,7 +345,7 @@ test("two failed storage writes report save failure through a Chinese error toas
   flush();
   assert.equal(setItem.mock.callCount(), 2);
   assert.equal(error.mock.callCount(), 1);
-  assert.match(error.mock.calls[0].arguments[0], /工作区保存失败/);
+  assert.match(error.mock.calls[0].arguments[0], /작업 공간 저장 실패/);
   assert.equal(useRepeaterStore.getState().workspace.tabs[0].body, "unsaved draft");
 });
 
@@ -432,21 +432,21 @@ test("traffic import uses captured metadata, preserves Host overrides and the fu
 
 test("traffic import rejects failed loads and blob preview markers rather than sending corrupted bodies", () => {
   const flow = { method: "POST", url: "https://example.test/", host: "example.test" };
-  assert.throws(() => requestFromTraffic("（无法加载报文）", flow), /不完整/);
+  assert.throws(() => requestFromTraffic("（패킷을 로드할 수 없음）", flow), /불완전/);
   assert.throws(
     () =>
       requestFromTraffic(
         `POST / HTTP/1.1\nHost: example.test\n\npreview\n…[truncated] @blob sha256:${"a".repeat(64)} (len=9999)`,
         flow,
       ),
-    /截断预览/,
+    /잘린 미리보기/,
   );
 });
 
 test("global replay filters combine title, request, response, method, path and status", () => {
   const tab = {
     ...defaultWorkspace().tabs[0],
-    title: "上传测试",
+    title: "업로드 테스트",
     method: "POST",
     url: "https://example.test/api/upload?q=1",
     headersText: "X-Test: RequestSecret",
@@ -454,7 +454,7 @@ test("global replay filters combine title, request, response, method, path and s
     response: response("ResponseSecret"),
   };
   const match = (patch) => matchesRepeaterFilters(tab, { ...DEFAULT_FILTERS, ...patch });
-  assert.equal(match({ query: "上传" }), true);
+  assert.equal(match({ query: "업로드" }), true);
   assert.equal(match({ query: "requestsecret" }), true);
   assert.equal(match({ query: "responseSECRET" }), true);
   assert.equal(match({ method: "POST", path: "/api/upload", response: "ResponseSecret", status: "2xx" }), true);
@@ -477,7 +477,7 @@ test("bulk move preserves draft, response and inflight requests and persists the
   const { store, writes } = setupStore(t);
   const [first, other] = store.workspace.tabs;
   store.recordSend(first.id, entry(1, "original response"));
-  store.createGroup("目标组");
+  store.createGroup("대상 그룹");
   const groupId = useRepeaterStore.getState().workspace.groups[1].id;
   store.toggleGroupCollapsed(groupId);
   const generation = store.beginSend(first.id);
@@ -552,7 +552,7 @@ test("raw HTTP editing keeps the first line, method, path, protocol, Host and bo
     parseRawRequest("GET http://elsewhere.test/path HTTP/1.1\nHost: vhost.test\n\n", "https://old.test").url,
     "http://elsewhere.test/path",
   );
-  assert.throws(() => parseRawRequest("POST /missing-version\nHost: test\n\n"), /首行/);
+  assert.throws(() => parseRawRequest("POST /missing-version\nHost: test\n\n"), /첫 줄/);
   assert.equal(buildRawRequest({ ...tab, rawRequest: "unfinished HTTP draft" }), "unfinished HTTP draft");
 });
 

@@ -7,7 +7,7 @@ export const APP_CONFIG = {
   version: packageJson.version,
   copyright: `© ${currentYear}, prtseek.`,
   meta: {
-    title: "prtseek — 研究终端",
-    description: "prtseek · 分析、研究与验证工作台",
+    title: "prtseek — 연구 터미널",
+    description: "prtseek · 분석, 연구, 검증 워크벤치",
   },
 };

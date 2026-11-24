@@ -56,7 +56,7 @@ func TestReserveConversationTurnTimeoutKeepsBusySlot(t *testing.T) {
 	s := &Server{chatBusy: map[string]bool{"conv-1": true}, chatCancel: map[string]context.CancelCauseFunc{}}
 	ctx, cancel := context.WithTimeout(t.Context(), 80*time.Millisecond)
 	defer cancel()
-	if err := s.reserveConversationTurn(ctx, "conv-1", true); err == nil || !strings.Contains(err.Error(), "尚未发送") {
+	if err := s.reserveConversationTurn(ctx, "conv-1", true); err == nil || !strings.Contains(err.Error(), "아직 전송되지 않았습니다") {
 		t.Fatalf("missing timeout feedback: %v", err)
 	}
 	if !s.chatBusy["conv-1"] {

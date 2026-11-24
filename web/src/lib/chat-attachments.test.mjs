@@ -3,7 +3,7 @@ import test from "node:test";
 import { uploadChatFiles } from "./chat-attachments.ts";
 
 test("failed message retries reuse uploaded attachments and preserve order", async () => {
-  const files = [new File(["one"], "题目.txt"), new File(["two"], "exp.py")];
+  const files = [new File(["one"], "문제.txt"), new File(["two"], "exp.py")];
   let requests = 0;
   const upload = async (batch) => {
     requests++;

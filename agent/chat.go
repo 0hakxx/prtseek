@@ -91,9 +91,9 @@ func (c *ChatAgent) SetGuard(g *guard.Guard) { c.guard = g }
 
 // chatWorkDirSpec returns a working-directory notice appended to every chat
 // agent's system prompt. Mirrors artifactSpec but without pentest-specific
-// wording ("payload", "抓响应体") that would be odd in a general assistant.
+// wording ("payload", "응답 본문 캡처") that would be odd in a general assistant.
 func chatWorkDirSpec(workDir string) string {
-	return "\n\n**文件输出规约**：需要写文件时，一律写到工作目录 " + workDir + "（这是默认 CWD，相对路径即落在这里，也可用该绝对路径）——不要写 /tmp 或其他绝对路径。\n" + shellEnvironment()
+	return "\n\n**파일 출력 규칙**: 파일을 써야 할 때는 반드시 작업 디렉터리 " + workDir + " 에 쓴다(이곳이 기본 CWD 이므로 상대 경로는 여기에 생성되며, 이 절대 경로를 써도 된다)——/tmp 나 다른 절대 경로에 쓰지 않는다.\n" + shellEnvironment()
 }
 
 // chatSystem renders the DB-managed prompt body for agentKey. Custom agents have
@@ -108,15 +108,15 @@ func chatSystem(agentKey, dataDir, workDir string) string {
 func chatSystemFor(agentKey, dataDir, workDir, sessionID string) string {
 	prompt := renderSystem(agentKey, DefaultAssistantPrompt, chatVars{DataDir: dataDir, Now: sessionNow(sessionID), NowTurn: nowStr()})
 	if agentKey == "triage" {
-		prompt += "\n\n协作约定：材料足够且几步可解决时直接 delegate_agent 给 solver；需要多个互补方向时再交给 command。缺少题目或附件时明确缺口，不能只用文字声称已经分工。"
+		prompt += "\n\n협업 규칙: 자료가 충분하고 몇 단계로 해결할 수 있으면 delegate_agent 로 solver 에게 바로 맡긴다. 서로 보완하는 여러 방향이 필요할 때만 command 에 넘긴다. 문제나 첨부 파일이 없으면 무엇이 빠졌는지 분명히 밝히고, 말로만 분담했다고 주장하지 않는다."
 	}
 	if agentKey == "command" {
-		prompt += "\n\n协作约定：按复杂度使用 delegate_agents 启动 1 至 6 个互补 solver；简单题只需一个。此工具立即返回编号，使用 wait_agents 等待任一结果，及时利用突破口、用 cancel_agent 停止无价值分支，并收取取消后的结果。每项任务写清材料、目标、边界、产物和验收标准。最多同时8个、单轮总计24个子任务、深度4层，整轮共享200次模型调用；不要为用满并行度而重复分工。收敛后按需要交给 writeup。"
+		prompt += "\n\n협업 규칙: 복잡도에 따라 delegate_agents 로 서로 보완하는 solver 를 1~6개 시작한다. 쉬운 문제는 하나면 충분하다. 이 도구는 즉시 번호를 반환하므로 wait_agents 로 결과 중 하나를 기다리고, 돌파구는 바로 활용하며, cancel_agent 로 가치 없는 분기를 중지하고 취소된 작업의 결과도 회수한다. 작업마다 자료, 목표, 경계, 산출물, 검수 기준을 명확히 쓴다. 동시 최대 8개, 한 턴 총 24개 하위 작업, 깊이 4단계까지이며 턴 전체가 200회의 모델 호출을 공유한다. 병렬도를 채우려고 중복 분담하지 않는다. 결과가 수렴하면 필요에 따라 writeup 에 넘긴다."
 	}
 	if agentKey == "triage" || agentKey == "command" || agentKey == "solver" || agentKey == "writeup" {
 		prompt += "\n\n" + CTFEvidencePriority + "\n\n" + ctfRoleMethod(agentKey)
-		prompt += "\n实验前用 research_experiment 记录假设、改变变量和预期，使用唯一目录/远程产物前缀，并先记录基线。只读到答案用 verification_level=observed；独立复现用 reproduced，提供 experiment_id、baseline_evidence、result_evidence；平台接受用 accepted 并提供 acceptance_evidence。重复读取旧产物不能证明从初始状态独立复现；平台接受必须有真实回执。阶段复核只写结论、证据、反证、下一步，不要求展示内部思维。"
-		prompt += "\n\n交付前调用 report_outcome：明确验收条件、目标状态（unverified/partial/blocked/verified）、结论、证据编号及产物相对路径。verified 必须说明实际验证方法并引用成功工具证据；候选 flag 或只有推断时只能用 partial/unverified。引用子任务证据时携带真实 conversation_id。运行正常结束不代表目标已达成。"
+		prompt += "\n실험 전에 research_experiment 로 가설, 바꾼 변수, 예상을 기록하고, 고유한 디렉터리/원격 산출물 접두사를 사용하며 먼저 기준선을 기록한다. 답을 읽기만 했다면 verification_level=observed, 독립 재현이면 reproduced 로 하고 experiment_id, baseline_evidence, result_evidence 를 제공한다. 플랫폼 수락은 accepted 로 하고 acceptance_evidence 를 제공한다. 이전 산출물을 다시 읽는 것은 초기 상태에서 독립적으로 재현했다는 증거가 아니며, 플랫폼 수락에는 실제 수신 확인이 있어야 한다. 단계 재검토에는 결론, 증거, 반증, 다음 단계만 쓰고 내부 사고 과정을 보여 줄 필요는 없다."
+		prompt += "\n\n결과를 넘기기 전에 report_outcome 을 호출한다: 검수 조건, 목표 상태(unverified/partial/blocked/verified), 결론, 증거 번호, 산출물 상대 경로를 명확히 한다. verified 는 실제 검증 방법을 설명하고 성공한 도구 증거를 인용해야 한다. 후보 flag 나 추론만 있다면 partial/unverified 만 쓸 수 있다. 하위 작업 증거를 인용할 때는 실제 conversation_id 를 함께 적는다. 실행이 정상 종료되었다고 목표가 달성된 것은 아니다."
 	}
 	return prompt + chatWorkDirSpec(workDir)
 }
@@ -201,8 +201,8 @@ func (c *ChatAgent) Chat(ctx context.Context, agentKey, sessionID, message strin
 		EnableWebFetch:         false, // Host adapter records redirects and bounded response evidence.
 		WebFetchProxy:          c.proxyAddr,
 		WebFetchCACert:         c.proxyCACert,
-		// 联网搜索(可选)。ddgs 无需 key；brave-free 需 BraveKey；tavily 需 TavilyKey。
-		// WebSearchProxy 是独立出口代理(http/https/socks5)，与记录流量的 MITM 代理无关；空则直连。
+		// 웹 검색(선택). ddgs 는 key 불필요, brave-free 는 BraveKey 필요, tavily 는 TavilyKey 필요.
+		// WebSearchProxy 는 독립적인 출구 프록시(http/https/socks5)로, 트래픽을 기록하는 MITM 프록시와는 무관하다. 비어 있으면 직접 연결.
 		EnableWebSearch:       ws.Enabled,
 		WebSearchBackend:      ws.Backend,
 		BraveSearchAPIKey:     ws.BraveKey,
@@ -218,16 +218,16 @@ func (c *ChatAgent) Chat(ctx context.Context, agentKey, sessionID, message strin
 		Compaction:            compactionConfig(c.window),
 		Todos:                 chatTodos(ctf),
 		// large tool output spills to cmd-output/ under the session dir.
-		// 截断上限用 SDK 默认(tool.Capture 的 30000 字符)。
+		// 잘라내기 상한은 SDK 기본값(tool.Capture 의 30000자)을 사용한다.
 		ToolOutputDir: filepath.Join(sessionWorkDir, "cmd-output"),
-		// 命中预算(步数)→ SDK 跑收尾:输出一句总结。Prompt 与收尾轮数按本 agent key 后台可编辑
-		// (自定义 agent 各自一份;留空/0 用通用默认:10 轮)。
+		// 예산(단계 수)에 도달 → SDK 가 마무리 실행: 한 문장 요약을 출력. Prompt 와 마무리 턴 수는 이 agent key 별로 관리 화면에서 편집 가능
+		// (사용자 정의 agent 마다 하나씩. 비우거나 0 이면 공통 기본값: 10턴).
 		Settlement:   wrapupSettlement(agentKey, nil),
-		NonStreaming: c.nonStreaming(), // 该 profile 选非流式时走 Provider.Complete
-		MaxTokens:    c.maxTokens(),    // 0 = 不发上限,由服务端默认值决定
+		NonStreaming: c.nonStreaming(), // 이 profile 이 비스트리밍을 선택하면 Provider.Complete 사용
+		MaxTokens:    c.maxTokens(),    // 0 = 상한을 보내지 않고 서버 기본값에 맡김
 	}
 	if persistentGoal {
-		opts.SystemPrompt = append(opts.SystemPrompt, "本轮用户明确要求持续推进目标。不要因尝试过几个方向、写出阶段总结或保存检查点就结束；继续依据新证据探索。只有取得可验证结果、用户中止，或明确说明环境/授权/可行路线的实际阻塞时才给最终答复。")
+		opts.SystemPrompt = append(opts.SystemPrompt, "이번 턴에서 사용자는 목표를 계속 추진하라고 명확히 요구했다. 몇 가지 방향을 시도했다거나, 단계 요약을 썼다거나, 체크포인트를 저장했다는 이유로 끝내지 말고, 새 증거에 따라 계속 탐색한다. 검증 가능한 결과를 얻었거나, 사용자가 중단했거나, 환경/권한/실행 가능한 경로의 실제 차단 요인을 명확히 설명할 때만 최종 답변을 한다.")
 	}
 	if c.guard != nil {
 		opts.Hooks = c.guard.Hooks()
@@ -236,7 +236,7 @@ func (c *ChatAgent) Chat(ctx context.Context, agentKey, sessionID, message strin
 		opts.Transcript = c.tx
 		opts.SessionID = sessionID
 	}
-	// 实验功能:开启后由 noa 接管上下文压缩(归档集中在 <workDir>/noa/<SessionID> 下,持久)。
+	// 실험 기능: 켜면 noa 가 컨텍스트 압축을 맡는다(아카이브는 <workDir>/noa/<SessionID> 아래에 모이며 영구 보존).
 	enableNoa(&opts, c.noaEnabledFn, c.workDir, "chat-"+sessionID, noaWarn("chat-"+sessionID))
 	ctx = attachSideCapture(ctx, &opts)
 	if agentKey == "triage" || agentKey == "command" || agentKey == "solver" || agentKey == "writeup" {
@@ -280,7 +280,7 @@ func (c *ChatAgent) Chat(ctx context.Context, agentKey, sessionID, message strin
 		observer.Terminal(reason)
 	}
 	if err == nil && reason != "completed" {
-		err = fmt.Errorf("执行结束：%s", reason)
+		err = fmt.Errorf("실행 종료: %s", reason)
 	}
 	return text, err
 }

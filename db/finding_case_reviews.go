@@ -9,7 +9,7 @@ import (
 	"sort"
 )
 
-var ErrFindingCaseReviewBusy = errors.New("该任务已有排队或运行中的漏洞整理，请等待完成或停止后重试")
+var ErrFindingCaseReviewBusy = errors.New("이 작업에는 이미 대기 중이거나 실행 중인 취약점 정리가 있습니다. 완료되기를 기다리거나 중지한 뒤 다시 시도하세요")
 
 type FindingCaseReviewReservation struct {
 	TaskID         int64
@@ -36,7 +36,7 @@ func (d *DB) CreateFindingCaseReviews(ctx context.Context, batches map[int64][]i
 				return err
 			}
 			if busy {
-				return fmt.Errorf("%w（任务 #%d）", ErrFindingCaseReviewBusy, task)
+				return fmt.Errorf("%w(작업 #%d)", ErrFindingCaseReviewBusy, task)
 			}
 		}
 		for _, task := range tasks {
@@ -52,19 +52,19 @@ func (d *DB) CreateFindingCaseReviews(ctx context.Context, batches map[int64][]i
 					return err
 				}
 				if source != task {
-					return errors.New("所选漏洞不属于来源任务")
+					return errors.New("선택한 취약점이 출처 작업에 속하지 않습니다")
 				}
 				ids = append(ids, id)
 			}
 			if len(ids) == 0 {
-				return errors.New("请选择原始上报")
+				return errors.New("원래 보고를 선택하세요")
 			}
 			raw, err := json.Marshal(ids)
 			if err != nil {
 				return err
 			}
 			var conv int64
-			if err := tx.QueryRow(`INSERT INTO conversations(agent_key,title) VALUES('reporter',$1) RETURNING id`, fmt.Sprintf("漏洞整理 · task#%d", task)).Scan(&conv); err != nil {
+			if err := tx.QueryRow(`INSERT INTO conversations(agent_key,title) VALUES('reporter',$1) RETURNING id`, fmt.Sprintf("취약점 정리 · task#%d", task)).Scan(&conv); err != nil {
 				return err
 			}
 			if _, err := tx.Exec(`INSERT INTO finding_case_review_runs(conversation_id,task_id,finding_ids) VALUES($1,$2,$3)`, conv, task, string(raw)); err != nil {

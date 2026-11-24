@@ -24,7 +24,7 @@ func TestIsQuotaExhaustedMessage(t *testing.T) {
 		`You exceeded your current quota, please check your plan and billing details.`,
 		`billing_not_active`,
 		`credit balance is too low`,
-		`账户余额不足，请充值`,
+		`계정 잔액이 부족합니다. 충전하세요`,
 	}
 	for _, message := range positive {
 		if !IsQuotaExhaustedMessage(message) {

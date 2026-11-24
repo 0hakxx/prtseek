@@ -59,7 +59,7 @@ type FlashProtocolError struct {
 }
 
 func (e *FlashProtocolError) Error() string {
-	return "DeepSeek 会话完整性错误 [" + e.Code + "]: " + e.Detail
+	return "DeepSeek 대화 무결성 오류 [" + e.Code + "]: " + e.Detail
 }
 
 func flashError(code, detail string) error { return &FlashProtocolError{Code: code, Detail: detail} }
@@ -145,7 +145,7 @@ func (p *flashProvider) remember(ctx context.Context, m llm.Message) {
 // half pairs. It clones the outer structures because history belongs to the host.
 func (p *flashProvider) prepare(ctx context.Context, req llm.CompletionRequest) (llm.CompletionRequest, error) {
 	if req.MaxTokens < 0 || req.MaxTokens > 393216 {
-		return req, flashError("output_budget", "max_tokens 必须为 1..393216，或 0 使用模型默认值")
+		return req, flashError("output_budget", "max_tokens 는 1..393216 이어야 하며, 0 이면 모델 기본값을 사용합니다")
 	}
 	if p.thinking(req) {
 		req.Temperature = nil // documented no-op in thinking mode; avoid false control
@@ -156,12 +156,12 @@ func (p *flashProvider) prepare(ctx context.Context, req llm.CompletionRequest) 
 	for i, m := range req.Messages {
 		if m.Role == llm.RoleAssistant {
 			if len(pending) != 0 {
-				return req, flashError("unanswered_tool", "历史工具调用缺少结果；请从完整检查点恢复，不要重复执行已有副作用")
+				return req, flashError("unanswered_tool", "과거 도구 호출에 결과가 없습니다. 완전한 체크포인트에서 복구하고, 이미 일어난 부수 효과를 반복 실행하지 마세요")
 			}
 			uses := m.ToolUses()
 			for _, block := range m.Content {
 				if block.Type == llm.BlockThinking && strings.TrimSpace(block.Thinking) == "(reasoning elided by context compaction)" {
-					return req, flashError("synthetic_reasoning", "历史含旧 SDK 生成的思考占位，不能作为原始模型思考回传")
+					return req, flashError("synthetic_reasoning", "과거 기록에 구 SDK 가 생성한 사고 자리표시자가 있어 원래 모델 사고로 되돌려 보낼 수 없습니다")
 				}
 			}
 			for _, call := range uses {
@@ -169,7 +169,7 @@ func (p *flashProvider) prepare(ctx context.Context, req llm.CompletionRequest) 
 					return req, err
 				}
 				if seen[call.ID] {
-					return req, flashError("duplicate_tool_id", "历史中有重复的工具调用 ID")
+					return req, flashError("duplicate_tool_id", "과거 기록에 중복된 도구 호출 ID 가 있습니다")
 				}
 				pending[call.ID], seen[call.ID] = true, true
 			}
@@ -192,25 +192,25 @@ func (p *flashProvider) prepare(ctx context.Context, req llm.CompletionRequest) 
 		for _, b := range m.Content {
 			if b.Type == llm.BlockToolResult {
 				if !pending[b.ToolUseID] {
-					return req, flashError("orphan_tool_result", "工具结果没有对应的待完成调用，或被重复写入")
+					return req, flashError("orphan_tool_result", "도구 결과에 대응하는 미완료 호출이 없거나 중복 기록되었습니다")
 				}
 				delete(pending, b.ToolUseID)
 			}
 		}
 	}
 	if len(pending) != 0 {
-		return req, flashError("unanswered_tool", "请求中包含没有结果的工具调用；请先恢复原工具状态")
+		return req, flashError("unanswered_tool", "요청에 결과가 없는 도구 호출이 있습니다. 먼저 원래 도구 상태를 복구하세요")
 	}
 	return req, nil
 }
 
 func validateFlashTool(b llm.ContentBlock) error {
 	if b.ID == "" || b.Name == "" {
-		return flashError("incomplete_tool", "工具调用缺少 ID 或名称")
+		return flashError("incomplete_tool", "도구 호출에 ID 또는 이름이 없습니다")
 	}
 	var args map[string]json.RawMessage
 	if err := json.Unmarshal(b.Input, &args); err != nil || args == nil {
-		return flashError("invalid_arguments", "工具参数必须是完整 JSON 对象，拒绝替换为默认空参数")
+		return flashError("invalid_arguments", "도구 파라미터는 완전한 JSON 객체여야 하며, 기본 빈 파라미터로 대체하지 않습니다")
 	}
 	return nil
 }
@@ -221,7 +221,7 @@ func validateFlashResponse(msg llm.Message, stop string) error {
 		return nil
 	}
 	if stop != "tool_use" && stop != "end_turn" {
-		return flashError("truncated_tool", "模型工具回复未完整结束（"+stop+"）；本次工具没有执行")
+		return flashError("truncated_tool", "모델의 도구 응답이 완전히 끝나지 않았습니다("+stop+"). 이번 도구는 실행하지 않았습니다")
 	}
 	seen := map[string]bool{}
 	for _, call := range uses {
@@ -229,7 +229,7 @@ func validateFlashResponse(msg llm.Message, stop string) error {
 			return err
 		}
 		if seen[call.ID] {
-			return flashError("duplicate_tool_id", "同一回复包含重复工具调用 ID")
+			return flashError("duplicate_tool_id", "같은 응답에 중복된 도구 호출 ID 가 있습니다")
 		}
 		seen[call.ID] = true
 	}
@@ -242,7 +242,7 @@ func (p *flashProvider) validateResponse(req llm.CompletionRequest, msg llm.Mess
 	}
 	for _, block := range msg.Content {
 		if block.Type == llm.BlockThinking && strings.TrimSpace(block.Thinking) == "(reasoning elided by context compaction)" {
-			return flashError("synthetic_reasoning", "工具回复包含思考占位文本；本次工具未执行")
+			return flashError("synthetic_reasoning", "도구 응답에 사고 자리표시자 텍스트가 있습니다. 이번 도구는 실행하지 않았습니다")
 		}
 	}
 	return nil
@@ -294,7 +294,7 @@ func (p *flashProvider) Stream(ctx context.Context, req llm.CompletionRequest) i
 		}
 		msg := acc.Message()
 		if acc.StopReason == "" {
-			yield(llm.StreamEvent{}, flashError("incomplete_stream", "SSE 缺少 finish_reason；未执行任何缓冲的工具调用"))
+			yield(llm.StreamEvent{}, flashError("incomplete_stream", "SSE 에 finish_reason 이 없습니다. 버퍼링된 도구 호출은 하나도 실행하지 않았습니다"))
 			return
 		}
 		if err := p.validateResponse(req, msg, acc.StopReason); err != nil {

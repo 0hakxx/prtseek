@@ -40,7 +40,7 @@ func TestInterceptApprovalFilters(t *testing.T) {
 						ruleID = rule.ID
 					}
 					if source == "model" {
-						reason = "[模型] fixture"
+						reason = "[모델] fixture"
 					}
 					id, err := d.CreateDecidedIntercept(ruleID, 0, task, "test", "Bash", []byte(`{"command":"fixture"}`), status, reason)
 					if err != nil {
@@ -142,7 +142,7 @@ func TestInterceptApprovalFilters(t *testing.T) {
 	}
 
 	modelInput := json.RawMessage(`{"script_files":[{"path":"scripts/check.py","content":"https://example.test/a?x=100%"}]}`)
-	searchID, err := d.CreateDecidedIntercept(0, 0, scope, "search-agent", "Bash", []byte(`{"command":"python3 scripts/check.py"}`), "denied", "[模型] searched", &InterceptAudit{ModelInput: modelInput, Output: "response contains example.test"})
+	searchID, err := d.CreateDecidedIntercept(0, 0, scope, "search-agent", "Bash", []byte(`{"command":"python3 scripts/check.py"}`), "denied", "[모델] searched", &InterceptAudit{ModelInput: modelInput, Output: "response contains example.test"})
 	if err != nil {
 		t.Fatal(err)
 	}

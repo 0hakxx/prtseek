@@ -64,14 +64,14 @@ func (s *Server) ctfTreeIDs(id int64) ([]int64, error) {
 }
 
 func (s *Server) ctfOutcomeTool(c *db.Conversation) actool.CoreTool {
-	ref := objSchema(map[string]any{"conversation_id": map[string]any{"type": "integer", "description": "证据所属会话编号；自己的证据可省略"}, "id": strParam("真实工具证据 t... 编号")}, "id")
-	return wrTool("report_outcome", "记录本次目标状态，与运行是否结束独立。verified 表示 Agent 已按 criterion 实际验证，须填写 verification 并引用可回查成功工具证据；文件存在和候选 flag 都不足以证明成功。", objSchema(map[string]any{
+	ref := objSchema(map[string]any{"conversation_id": map[string]any{"type": "integer", "description": "증거가 속한 대화 번호. 자신의 증거는 생략 가능"}, "id": strParam("실제 도구 증거 t... 번호")}, "id")
+	return wrTool("report_outcome", "이번 목표 상태를 기록하며, 실행이 끝났는지와는 독립적이다. verified 는 Agent 가 criterion 에 따라 실제로 검증했다는 뜻이며, verification 을 반드시 채우고 다시 확인할 수 있는 성공 도구 증거를 인용해야 한다. 파일이 존재하는 것과 후보 flag 모두 성공을 증명하기에는 부족하다.", objSchema(map[string]any{
 		"state":   map[string]any{"type": "string", "enum": []string{"unverified", "partial", "blocked", "verified"}},
-		"summary": strParam("结论或实际阻塞点"), "criterion": strParam("本子任务可验证的验收条件"), "verification": strParam("实际验证方式和观测结果；不得把推断写成验证"),
+		"summary": strParam("결론 또는 실제 차단 지점"), "criterion": strParam("이 하위 작업에서 검증 가능한 검수 조건"), "verification": strParam("실제 검증 방식과 관측 결과. 추론을 검증으로 쓰면 안 됨"),
 		"evidence":           map[string]any{"type": "array", "maxItems": 16, "items": ref},
-		"artifacts":          map[string]any{"type": "array", "maxItems": 16, "items": map[string]any{"type": "string"}, "description": "自己工作目录中实际产物的相对路径"},
-		"verification_level": map[string]any{"type": "string", "enum": []string{"inference", "observed", "reproduced", "accepted"}, "description": "推断/实际观察/隔离实验独立复现/平台接受。这是Agent报告的证据等级，不是自动语义判题。"},
-		"experiment_id":      strParam("独立复现须使用 research_experiment 分配的真实编号，说明初始状态与唯一产物"),
+		"artifacts":          map[string]any{"type": "array", "maxItems": 16, "items": map[string]any{"type": "string"}, "description": "자신의 작업 디렉터리에 있는 실제 산출물의 상대 경로"},
+		"verification_level": map[string]any{"type": "string", "enum": []string{"inference", "observed", "reproduced", "accepted"}, "description": "추론/실제 관찰/격리 실험 독립 재현/플랫폼 수락. 이것은 Agent 가 보고하는 증거 등급이지 자동 의미 판정이 아니다."},
+		"experiment_id":      strParam("독립 재현에는 research_experiment 가 할당한 실제 번호를 써야 하며, 초기 상태와 고유 산출물을 설명해야 한다"),
 		"baseline_evidence":  ref, "result_evidence": ref, "acceptance_evidence": ref,
 	}, "state", "summary", "criterion"), func(ctx context.Context, raw json.RawMessage) (actool.Result, error) {
 		if ctx.Err() != nil {
@@ -86,7 +86,7 @@ func (s *Server) ctfOutcomeTool(c *db.Conversation) actool.CoreTool {
 		}
 		body, _ := json.Marshal(outcome)
 		if _, err := s.m.pg.Exec(`INSERT INTO conversation_outcomes(conversation_id,report_json) VALUES($1,$2) ON CONFLICT(conversation_id) DO UPDATE SET report_json=excluded.report_json`, c.ID, string(body)); err != nil {
-			return actool.Errorf("无法保存目标状态"), nil
+			return actool.Errorf("목표 상태를 저장할 수 없습니다"), nil
 		}
 		return jsonResult(outcome)
 	})
@@ -105,10 +105,10 @@ func (s *Server) validateCTFOutcome(id int64, o *ctfOutcome) error {
 		return fmt.Errorf("invalid verification_level")
 	}
 	if o.State == "verified" && o.VerificationLevel == "inference" {
-		return fmt.Errorf("仅推断不能标记 verified")
+		return fmt.Errorf("추론만으로는 verified 로 표시할 수 없습니다")
 	}
 	if o.VerificationLevel != "inference" && (len(o.Evidence) == 0 || strings.TrimSpace(o.Verification) == "") {
-		return fmt.Errorf("观察或更高等级需要验证说明与工具证据")
+		return fmt.Errorf("observed 이상 등급에는 검증 설명과 도구 증거가 필요합니다")
 	}
 	switch o.State {
 	case "unverified", "partial", "blocked", "verified":
@@ -116,10 +116,10 @@ func (s *Server) validateCTFOutcome(id int64, o *ctfOutcome) error {
 		return fmt.Errorf("invalid outcome state")
 	}
 	if strings.TrimSpace(o.Summary) == "" || strings.TrimSpace(o.Criterion) == "" || len(o.Summary) > 4000 || len(o.Criterion) > 2000 || len(o.Verification) > 4000 || len(o.Evidence) > 16 || len(o.Artifacts) > 16 {
-		return fmt.Errorf("填写简短结论与验收条件；证据和产物各最多16项")
+		return fmt.Errorf("짧은 결론과 검수 조건을 채우세요. 증거와 산출물은 각각 최대 16 개입니다")
 	}
 	if o.State == "verified" && (strings.TrimSpace(o.Verification) == "" || len(o.Evidence) == 0) {
-		return fmt.Errorf("verified 需要实际验证说明和成功工具证据；证据不足请用 partial/unverified")
+		return fmt.Errorf("verified 에는 실제 검증 설명과 성공 도구 증거가 필요합니다. 증거가 부족하면 partial/unverified 를 쓰세요")
 	}
 	ids, err := s.ctfTreeIDs(id)
 	if err != nil {
@@ -136,11 +136,11 @@ func (s *Server) validateCTFOutcome(id int64, o *ctfOutcome) error {
 			o.Evidence[i] = ref
 		}
 		if !allowed[ref.ConversationID] {
-			return fmt.Errorf("证据会话 #%d 不属于当前任务", ref.ConversationID)
+			return fmt.Errorf("증거 대화 #%d 가 현재 작업에 속하지 않습니다", ref.ConversationID)
 		}
 		memory, err := agent.NewResearchMemory(s.conversationWorkDir(ref.ConversationID))
 		if err != nil {
-			return fmt.Errorf("无法读取证据目录")
+			return fmt.Errorf("증거 디렉터리를 읽을 수 없습니다")
 		}
 		state, err := memory.Snapshot()
 		if err != nil {
@@ -158,13 +158,13 @@ func (s *Server) validateCTFOutcome(id int64, o *ctfOutcome) error {
 			f, err := root.Open(obs.Path)
 			root.Close()
 			if err != nil {
-				return fmt.Errorf("证据 %s 已不可读取", ref.ID)
+				return fmt.Errorf("증거 %s 를 더 이상 읽을 수 없습니다", ref.ID)
 			}
 			h := sha256.New()
 			n, copyErr := io.Copy(h, io.LimitReader(f, 64<<10))
 			f.Close()
 			if copyErr != nil || n != obs.Bytes || hex.EncodeToString(h.Sum(nil)) != obs.SHA256 {
-				return fmt.Errorf("证据 %s 内容发生变化", ref.ID)
+				return fmt.Errorf("증거 %s 의 내용이 변경되었습니다", ref.ID)
 			}
 			found = true
 			// Reading a prior claim or a delegation receipt does not independently
@@ -175,11 +175,11 @@ func (s *Server) validateCTFOutcome(id int64, o *ctfOutcome) error {
 			break
 		}
 		if !found {
-			return fmt.Errorf("证据 %s 不存在，请用 research_recall 查询真实编号", ref.ID)
+			return fmt.Errorf("증거 %s 가 없습니다. research_recall 로 실제 번호를 조회하세요", ref.ID)
 		}
 	}
 	if o.State == "verified" && !success {
-		return fmt.Errorf("verified 需要成功的实际工具观察，不能只引用派发或报告")
+		return fmt.Errorf("verified 에는 성공한 실제 도구 관찰이 필요하며, 분배나 보고만 인용할 수 없습니다")
 	}
 	if o.VerificationLevel == "reproduced" || o.VerificationLevel == "accepted" {
 		if err := s.validateVerificationLevel(id, o); err != nil {
@@ -188,7 +188,7 @@ func (s *Server) validateCTFOutcome(id int64, o *ctfOutcome) error {
 	}
 	for _, path := range o.Artifacts {
 		if !filepath.IsLocal(path) || strings.Contains(path, "\\") {
-			return fmt.Errorf("产物必须使用工作目录内的相对路径")
+			return fmt.Errorf("산출물은 작업 디렉터리 안의 상대 경로를 써야 합니다")
 		}
 		root, err := os.OpenRoot(s.conversationWorkDir(id))
 		if err != nil {
@@ -197,7 +197,7 @@ func (s *Server) validateCTFOutcome(id int64, o *ctfOutcome) error {
 		info, err := root.Stat(path)
 		root.Close()
 		if err != nil || !info.Mode().IsRegular() {
-			return fmt.Errorf("产物 %s 不存在或不是普通文件", path)
+			return fmt.Errorf("산출물 %s 가 없거나 일반 파일이 아닙니다", path)
 		}
 	}
 	o.Summary = agent.RedactResearchText(o.Summary)
@@ -215,7 +215,7 @@ func (s *Server) validateVerificationLevel(id int64, o *ctfOutcome) error {
 	}
 	for _, ref := range refs {
 		if ref == nil || ref.ID == "" {
-			return fmt.Errorf("独立复现需要 baseline_evidence/result_evidence；平台接受需要 acceptance_evidence")
+			return fmt.Errorf("독립 재현에는 baseline_evidence/result_evidence 가, 플랫폼 수락에는 acceptance_evidence 가 필요합니다")
 		}
 		if ref.ConversationID == 0 {
 			ref.ConversationID = id
@@ -231,7 +231,7 @@ func (s *Server) validateVerificationLevel(id int64, o *ctfOutcome) error {
 			}
 		}
 		if !found {
-			return fmt.Errorf("分级验证证据必须同时列入 evidence")
+			return fmt.Errorf("등급 검증 증거는 evidence 에도 반드시 함께 넣어야 합니다")
 		}
 		memory, err := agent.NewResearchMemory(s.conversationWorkDir(ref.ConversationID))
 		if err != nil {
@@ -248,12 +248,12 @@ func (s *Server) validateVerificationLevel(id int64, o *ctfOutcome) error {
 			}
 		}
 		if !success {
-			return fmt.Errorf("分级验证必须引用实际成功工具观察")
+			return fmt.Errorf("등급 검증은 성공한 실제 도구 관찰을 인용해야 합니다")
 		}
 	}
 	if o.VerificationLevel == "reproduced" {
 		if o.BaselineEvidence.ConversationID != id || o.ResultEvidence.ConversationID != id || o.BaselineEvidence.ID == o.ResultEvidence.ID {
-			return fmt.Errorf("独立复现需要本会话两次不同的基线与结果观察")
+			return fmt.Errorf("독립 재현에는 이 대화에서 서로 다른 기준선 관찰과 결과 관찰 두 번이 필요합니다")
 		}
 		memory, err := agent.NewResearchMemory(s.conversationWorkDir(id))
 		if err != nil {
@@ -273,7 +273,7 @@ func (s *Server) validateVerificationLevel(id int64, o *ctfOutcome) error {
 			}
 		}
 		if baseline < 0 || result <= baseline {
-			return fmt.Errorf("基线观察必须先于结果验证")
+			return fmt.Errorf("기준선 관찰은 결과 검증보다 먼저여야 합니다")
 		}
 		found := false
 		for _, entry := range state.Entries {
@@ -282,7 +282,7 @@ func (s *Server) validateVerificationLevel(id int64, o *ctfOutcome) error {
 			}
 		}
 		if !found || strings.ContainsAny(o.ExperimentID, "/\\.") {
-			return fmt.Errorf("独立复现需要 research_experiment 创建的实验编号")
+			return fmt.Errorf("독립 재현에는 research_experiment 로 만든 실험 번호가 필요합니다")
 		}
 		root, err := os.OpenRoot(s.conversationWorkDir(id))
 		if err != nil {
@@ -291,7 +291,7 @@ func (s *Server) validateVerificationLevel(id int64, o *ctfOutcome) error {
 		defer root.Close()
 		info, err := root.Stat(filepath.Join(".research", "experiments", o.ExperimentID))
 		if err != nil || !info.IsDir() {
-			return fmt.Errorf("隔离实验目录不可用")
+			return fmt.Errorf("격리 실험 디렉터리를 사용할 수 없습니다")
 		}
 	}
 	return nil

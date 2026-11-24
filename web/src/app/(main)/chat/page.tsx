@@ -70,7 +70,7 @@ function Composer({
               {file.name}
               <button
                 type="button"
-                aria-label={`移除附件 ${file.name}`}
+                aria-label={`첨부 파일 제거 ${file.name}`}
                 disabled={disabled}
                 onClick={() => onFilesChange?.(files.filter((_, item) => item !== index))}
               >
@@ -106,14 +106,14 @@ function Composer({
               variant="ghost"
               disabled={disabled}
               onClick={() => picker.current?.click()}
-              aria-label="添加附件"
+              aria-label="첨부 파일 추가"
             >
               <Paperclip />
             </Button>
           </>
         )}
         <textarea
-          aria-label="消息"
+          aria-label="메시지"
           rows={3}
           value={value}
           placeholder={placeholder}
@@ -128,7 +128,7 @@ function Composer({
           }}
         />
         {running && (
-          <Button size="icon" variant="ghost" onClick={onStop} disabled={disabled} aria-label="仅停止当前回复" title="仅停止当前回复">
+          <Button size="icon" variant="ghost" onClick={onStop} disabled={disabled} aria-label="현재 답변만 중지" title="현재 답변만 중지">
             <Square />
           </Button>
         )}
@@ -137,13 +137,13 @@ function Composer({
           className={styles.send}
           onClick={onSend}
           disabled={disabled || (!value.trim() && files.length === 0)}
-          aria-label={running ? "打断并发送消息" : "发送消息"}
-          title={running ? "打断当前回复并发送" : "发送消息"}
+          aria-label={running ? "중단하고 메시지 전송" : "메시지 전송"}
+          title={running ? "현재 답변을 중단하고 전송" : "메시지 전송"}
         >
           <ArrowUpIcon />
         </Button>
       </div>
-      {running && <p className={styles.interruptHint}>当前回复进行中；发送新消息会打断它。也可以只停止当前回复。</p>}
+      {running && <p className={styles.interruptHint}>현재 답변이 진행 중입니다. 새 메시지를 보내면 그것을 중단합니다. 현재 답변만 중지할 수도 있습니다.</p>}
     </div>
   );
 }
@@ -156,12 +156,12 @@ function AgentPicker({ agents, value, onChange, disabled }: { agents: Agent[]; v
       <PopoverTrigger asChild>
         <button type="button" disabled={disabled} className={cn(styles.profileButton, "disabled:pointer-events-none disabled:opacity-40")}>
           <BotIcon className="size-3.5 shrink-0" />
-          <span className="max-w-48 truncate">{selected?.name || value || "选择 Agent"}</span>
+          <span className="max-w-48 truncate">{selected?.name || value || "Agent 선택"}</span>
           <ChevronDownIcon className="size-3" />
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className={cn(styles.profileMenu, "w-72 max-w-[calc(100vw-24px)]")}>
-        <p className={cn(styles.eyebrow, "px-2 py-2")}>AGENT / 入口角色</p>
+        <p className={cn(styles.eyebrow, "px-2 py-2")}>AGENT / 진입 역할</p>
         {agents.map((agent) => (
           <button key={agent.key} type="button" className={cn(styles.profileOption, agent.key === value && styles.profileOptionActive)} onClick={() => { onChange(agent.key); setOpen(false); }}>
             <span className="text-sm">{agent.name}</span><span className="text-muted-foreground text-xs">{agent.key}{agent.description ? ` · ${agent.description}` : ""}</span>
@@ -196,7 +196,7 @@ function LLMProfileRow({
   const [open, setOpen] = React.useState(false);
   const activeDefault = profiles.find((p) => p.is_default);
   const current = selected != null ? profiles.find((p) => Number(p.id) === selected) : null;
-  const label = current ? current.name : `默认${activeDefault ? `（${activeDefault.name}）` : ""}`;
+  const label = current ? current.name : `기본${activeDefault ? `(${activeDefault.name})` : ""}`;
   const resolved = current ?? activeDefault;
 
   return (
@@ -207,17 +207,17 @@ function LLMProfileRow({
             type="button"
             disabled={disabled}
             className={cn(styles.profileButton, "disabled:pointer-events-none disabled:opacity-40")}
-            title={`${label}${effectiveModel ? ` · 实际模型 ${effectiveModel}` : ""}`}
+            title={`${label}${effectiveModel ? ` · 실제 모델 ${effectiveModel}` : ""}`}
           >
             <ZapIcon className="size-3.5 shrink-0" />
             <span className="max-w-48 truncate">
-              {effectiveModel ? effectiveModel : resolved?.model ? resolved.model : "选择模型"}
+              {effectiveModel ? effectiveModel : resolved?.model ? resolved.model : "모델 선택"}
             </span>
             <ChevronDownIcon className="size-3" />
           </button>
         </PopoverTrigger>
         <PopoverContent align="start" className={cn(styles.profileMenu, "w-72 max-w-[calc(100vw-24px)]")}>
-          <p className={cn(styles.eyebrow, "px-2 py-2")}>MODEL / 模型配置</p>
+          <p className={cn(styles.eyebrow, "px-2 py-2")}>MODEL / 모델 설정</p>
           {/* default option */}
           <button
             type="button"
@@ -227,7 +227,7 @@ function LLMProfileRow({
             }}
             className={cn(styles.profileOption, selected == null && styles.profileOptionActive)}
           >
-            <span className="text-sm">默认{activeDefault ? `（${activeDefault.name}）` : ""}</span>
+            <span className="text-sm">기본{activeDefault ? `(${activeDefault.name})` : ""}</span>
             {activeDefault && (
               <span className="text-muted-foreground text-xs">
                 {activeDefault.format} · {activeDefault.model}
@@ -258,7 +258,7 @@ function LLMProfileRow({
               window.dispatchEvent(new Event("prtseek-configure-model"));
             }}
           >
-            添加模型配置…
+            모델 설정 추가…
           </button>
         </PopoverContent>
       </Popover>
@@ -304,7 +304,7 @@ function DraftChat({
   async function send() {
     const msg = input.trim();
     if ((!msg && files.length === 0) || sending) return;
-    if (!agentKey) return toast.error("请先创建或恢复一个 Agent。");
+    if (!agentKey) return toast.error("먼저 Agent 를 만들거나 복구하세요.");
     const profile =
       llmProfileId == null ? profiles.find((p) => p.is_default) : profiles.find((p) => Number(p.id) === llmProfileId);
     if (!profile?.api_key_hint) {
@@ -318,11 +318,11 @@ function DraftChat({
       created = c;
       uploads.current = await uploadChatFiles(files, uploads.current, (batch) => api.chatUpload("session", String(c.id), batch));
       const attachments = uploads.current.map((item) => item.attachment);
-      await api.sendConversationMessage(c.id, msg || "请分析已附加的题目文件。", attachments);
+      await api.sendConversationMessage(c.id, msg || "첨부된 문제 파일을 분석해 주세요.", attachments);
       setFiles([]);
       onStarted({ ...c, running: true });
     } catch (e) {
-      toast.error("发送失败：" + (e as Error).message);
+      toast.error("전송 실패: " + (e as Error).message);
       if (created) onStarted(created, { input, files, uploads: uploads.current });
       setSending(false);
     }
@@ -336,7 +336,7 @@ function DraftChat({
           onChange={setInput}
           onSend={send}
           disabled={sending || !agentKey}
-          placeholder="输入 CTF 题目、附件线索、目标或 flag 格式…"
+          placeholder="CTF 문제, 첨부 파일 단서, 목표, flag 형식을 입력…"
           files={files}
           onFilesChange={setFiles}
         />
@@ -362,22 +362,22 @@ function delegationStateLabel(state: string, running: boolean) {
 }
 
 function delegationActivityLabel(activity: DelegationActivity) {
-  const prefix = activity.kind === "tool_use" || activity.kind === "tool_result" ? activity.tool || "工具" : activity.kind;
-  return `${prefix} · ${hideResearchEvidenceAnnotation(activity.summary) || "等待新的动态…"}`;
+  const prefix = activity.kind === "tool_use" || activity.kind === "tool_result" ? activity.tool || "도구" : activity.kind;
+  return `${prefix} · ${hideResearchEvidenceAnnotation(activity.summary) || "새 진행 상황 대기 중…"}`;
 }
 
 function DelegationConsole({ delegations }: { delegations: Delegation[] }) {
   const activeCount = delegations.filter((job) => job.running || job.state === "running").length;
   return (
-    <section className={styles.delegationConsole} aria-label="子 Agent 动态">
+    <section className={styles.delegationConsole} aria-label="하위 Agent 진행 상황">
       <div className={styles.delegationHeading}>
         <div>
-          <span className={styles.delegationCode}>FIELD OPERATORS / 实时状态</span>
-          <strong>子 Agent</strong>
+          <span className={styles.delegationCode}>FIELD OPERATORS / 실시간 상태</span>
+          <strong>하위 Agent</strong>
         </div>
         <span className={styles.delegationCount} data-live={activeCount > 0}>
           <span className={styles.delegationCountDot} />
-          {activeCount ? `${activeCount} 执行中` : `${delegations.length} 已记录`}
+          {activeCount ? `${activeCount} 실행 중` : `${delegations.length} 기록됨`}
         </span>
       </div>
       <div className={styles.delegationGrid}>
@@ -395,9 +395,9 @@ function DelegationConsole({ delegations }: { delegations: Delegation[] }) {
                 <ChevronRightIcon className={styles.delegationChevron} />
               </summary>
               <div className={styles.delegationBody}>
-                <div className={styles.delegationTaskMeta}>SESSION #{job.id} <span>· {job.activities.length} 条动态</span></div>
-                <p className={styles.delegationTitle}>{job.title || "未命名子任务"}</p>
-                <p className="py-1 text-xs text-muted-foreground">目标：{outcomeLabel(job.outcome?.state ?? "unverified")}{job.outcome?.summary ? ` · ${job.outcome.summary}` : ""}</p>
+                <div className={styles.delegationTaskMeta}>SESSION #{job.id} <span>· 진행 상황 {job.activities.length} 건</span></div>
+                <p className={styles.delegationTitle}>{job.title || "이름 없는 하위 작업"}</p>
+                <p className="py-1 text-xs text-muted-foreground">목표: {outcomeLabel(job.outcome?.state ?? "unverified")}{job.outcome?.summary ? ` · ${job.outcome.summary}` : ""}</p>
                 {job.activities.length > 0 ? (
                   <ol className={styles.delegationActivity}>
                     {job.activities.slice(-8).map((activity) => (
@@ -412,10 +412,10 @@ function DelegationConsole({ delegations }: { delegations: Delegation[] }) {
                     ))}
                   </ol>
                 ) : (
-                  <p className={styles.delegationEmpty}>已分派，等待 Worker 回传第一条动态。</p>
+                  <p className={styles.delegationEmpty}>분배했습니다. Worker 의 첫 진행 상황을 기다리는 중.</p>
                 )}
                 <a className={styles.delegationLink} href={`/chat?c=${job.id}`} target="_blank" rel="noopener noreferrer">
-                  查看完整子会话 ↗
+                  전체 하위 대화 보기 ↗
                 </a>
               </div>
             </details>
@@ -528,7 +528,7 @@ function ChatView({
     try {
       uploads.current = await uploadChatFiles(files, uploads.current, (batch) => api.chatUpload("session", String(conv.id), batch));
       const attachments = uploads.current.map((item) => item.attachment);
-      await api.sendConversationMessage(conv.id, input.trim() || "请分析已附加的题目文件。", attachments, running);
+      await api.sendConversationMessage(conv.id, input.trim() || "첨부된 문제 파일을 분석해 주세요.", attachments, running);
       mutationEpoch.current++;
       setOverview(null);
       setInput("");
@@ -573,12 +573,12 @@ function ChatView({
       <div className={styles.missionBar}>
         <span className={styles.missionEyebrow}>CTF CONTROL / SESSION #{conv.id}</span>
         <span className={styles.missionRole}>{conv.agent_key}</span>
-        <span className={styles.missionRun} data-live={running}>{running ? "● 运行中" : "待命"}</span>
+        <span className={styles.missionRun} data-live={running}>{running ? "● 실행 중" : "대기"}</span>
       </div>
       <ConversationOverview id={conv.id} overview={overview} />
       {error && (
         <p role="alert" className="px-6 py-2 text-sm text-destructive">
-          记录加载失败：{error}
+          기록 로드 실패: {error}
         </p>
       )}
       <div
@@ -591,7 +591,7 @@ function ChatView({
         <div className="mx-auto w-full max-w-4xl px-4 py-6">
           {hasMore && (
             <Button variant="ghost" size="sm" disabled={loadingOlder} onClick={() => void loadOlder()}>
-              加载更早记录
+              더 이전 기록 불러오기
             </Button>
           )}
           <Transcript activity={messages} live={running} chat fetchDetail={fetchDetail} />
@@ -606,7 +606,7 @@ function ChatView({
           disabled={busy}
           running={running}
           onStop={() => void stop()}
-          placeholder="输入消息…"
+          placeholder="메시지를 입력…"
           files={files}
           onFilesChange={setFiles}
         />
@@ -715,9 +715,9 @@ export default function ChatPage() {
           aria-controls="conversation-history"
           onClick={() => setShowHistory(!showHistory)}
         >
-          {showHistory ? "返回对话" : "会话管理"}
+          {showHistory ? "대화로 돌아가기" : "세션 관리"}
         </Button>
-        <span className="truncate">{selected?.title || "新对话"}</span>
+        <span className="truncate">{selected?.title || "새 대화"}</span>
       </div>
       <div className="conversation-layout" data-history-open={showHistory}>
         <div id="conversation-history" className="conversation-history">
@@ -742,12 +742,12 @@ export default function ChatPage() {
             />
           ) : loading ? (
             <p role="status" className="p-6">
-              正在恢复会话…
+              세션을 복구하는 중…
             </p>
           ) : error ? (
             <div className="space-y-3 p-6">
               <p role="alert">{error}</p>
-              <Button onClick={() => void reload()}>重试</Button>
+              <Button onClick={() => void reload()}>다시 시도</Button>
             </div>
           ) : (
             <DraftChat

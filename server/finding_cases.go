@@ -47,7 +47,7 @@ func caseHTTPError(w http.ResponseWriter, err error) {
 func decodeCaseRequest(w http.ResponseWriter, r *http.Request, a any) bool {
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	if err := json.NewDecoder(r.Body).Decode(a); err != nil {
-		writeErr(w, 400, "无效请求正文")
+		writeErr(w, 400, "유효하지 않은 요청 본문")
 		return false
 	}
 	return true
@@ -122,18 +122,18 @@ func (s *Server) findingCaseAccess(w http.ResponseWriter, r *http.Request, mutat
 		return nil, false
 	}
 	if c == nil {
-		writeErr(w, 404, "漏洞组不存在")
+		writeErr(w, 404, "취약점 그룹이 존재하지 않습니다")
 		return nil, false
 	}
 	if ctx := r.URL.Query().Get("context_task"); ctx != "" {
 		t := s.m.ResolveTask(ctx)
 		_, inherited, allowed := findingProvenanceInTask(t, c.TaskID)
 		if !allowed {
-			writeErr(w, 404, "任务中没有该漏洞组")
+			writeErr(w, 404, "작업에 해당 취약점 그룹이 없습니다")
 			return nil, false
 		}
 		if mutation && inherited {
-			writeErr(w, 403, "继承漏洞组只读")
+			writeErr(w, 403, "상속된 취약점 그룹은 읽기 전용입니다")
 			return nil, false
 		}
 	}
@@ -187,7 +187,7 @@ func (s *Server) removeFindingCaseMember(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if strings.TrimSpace(body.Reason) == "" {
-		body.Reason = "人工移出归并组"
+		body.Reason = "수동으로 병합 그룹에서 제외"
 	}
 	if err := s.m.pg.RemoveFindingCaseMember(r.Context(), c.ID, fid, body.Reason); err != nil {
 		caseHTTPError(w, err)
@@ -215,7 +215,7 @@ func (s *Server) resolveCaseSuggestion(w http.ResponseWriter, r *http.Request) {
 	for _, raw := range a.ExcludeIDs {
 		id, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
 		if err != nil || id <= 0 {
-			caseHTTPError(w, errors.New("无效的排除记录编号"))
+			caseHTTPError(w, errors.New("유효하지 않은 제외 기록 번호"))
 			return
 		}
 		exclude = append(exclude, id)
@@ -260,17 +260,17 @@ func (s *Server) updateCaseReport(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) findingCaseTools() []actool.CoreTool {
-	props := map[string]any{"finding_id": idParam("独立 findings 记录 ID，不是探索节点 ID"), "finding_ids": map[string]any{"type": "array", "items": map[string]any{"type": "integer"}, "description": "独立漏洞记录 ID 列表"}, "task_id": idParam("同一来源任务 ID"), "case_id": idParam("归并组 ID"), "version": idParam("get_finding_case 实际读取的 version"), "page": idParam("分页，从1开始，每页20条"), "title": strParam("同一实际缺陷的名称"), "reason": strParam("具体证据与归并理由，不能仅类型相同"), "report": strParam("全部成员证据的完整统一 Markdown 报告"), "severity": strParam("critical|high|medium|low"), "severity_reason": strParam("基于已验证影响的评级依据，不直接取最高等级")}
+	props := map[string]any{"finding_id": idParam("독립 findings 기록 ID, 탐색 노드 ID 아님"), "finding_ids": map[string]any{"type": "array", "items": map[string]any{"type": "integer"}, "description": "독립 취약점 기록 ID 목록"}, "task_id": idParam("같은 출처 작업 ID"), "case_id": idParam("병합 그룹 ID"), "version": idParam("get_finding_case 가 실제로 읽은 version"), "page": idParam("페이지, 1 부터, 페이지당 20 건"), "title": strParam("같은 실제 결함의 이름"), "reason": strParam("구체적인 증거와 병합 이유. 유형만 같다는 것은 안 됨"), "report": strParam("모든 구성원 증거를 담은 완전한 통합 Markdown 보고서"), "severity": strParam("critical|high|medium|low"), "severity_reason": strParam("검증된 영향에 근거한 등급 근거. 최고 등급을 그대로 가져오지 않음")}
 	specs := []struct {
 		name, desc string
 		required   []string
 	}{
-		{"search_finding_duplicates", "只读检索同任务候选摘要与资产，按分数排序并返回 score、tier、hit_reasons：strong=同漏洞类型且资产重叠，weak=未同时具备同漏洞类型和资产重叠，请结合 hit_reasons 核对，仅作参考。等级不同也可能重复。支持分页，按需读取详情。", []string{"finding_id"}},
-		{"get_finding_record", "读取独立漏洞完整原始证据和报告，返回探索节点编号以便追溯执行记录。", []string{"finding_id"}},
-		{"merge_finding_records", "证据明确证明同一缺陷时归并；保留所有原始记录。不跨任务、不改变原评级，不可绕过人工否决。", []string{"task_id", "finding_ids", "title", "reason"}},
-		{"suggest_finding_merge", "证据存在具体共同点但缺少关键证据时，提交一个疑似重复分组（2..20 条同任务记录，一次覆盖全部疑似成员，不要拆成两两建议），待人工确认；不是自动合并。仅类型/资产相同不应提交。", []string{"task_id", "finding_ids", "title", "reason"}},
-		{"get_finding_case", "读取归并组和成员分页。先记录version，再读取成员的原报告、证据及流量；版本变化必须重新读取。", []string{"case_id"}},
-		{"update_finding_case_report", "保存统一报告及评级理由，version必须来自实际读取。保留各条原报告，不新建漏洞。", []string{"case_id", "version", "title", "report", "severity", "severity_reason"}},
+		{"search_finding_duplicates", "같은 작업의 후보 요약과 자산을 읽기 전용으로 검색하고, 점수순으로 정렬해 score, tier, hit_reasons 를 반환한다: strong=취약점 유형이 같고 자산이 겹침, weak=같은 취약점 유형과 자산 겹침을 동시에 갖추지 않음이니 hit_reasons 와 함께 확인하며 참고용으로만. 등급이 달라도 중복일 수 있다. 페이지를 지원하며 필요에 따라 상세를 읽는다.", []string{"finding_id"}},
+		{"get_finding_record", "독립 취약점의 완전한 원본 증거와 보고를 읽고, 실행 기록을 추적할 수 있도록 탐색 노드 번호를 반환한다.", []string{"finding_id"}},
+		{"merge_finding_records", "증거가 같은 결함임을 명확히 증명할 때 병합한다. 모든 원본 기록을 보존한다. 작업을 넘나들지 않고, 원래 등급을 바꾸지 않으며, 수동 기각을 우회할 수 없다.", []string{"task_id", "finding_ids", "title", "reason"}},
+		{"suggest_finding_merge", "증거에 구체적인 공통점이 있지만 핵심 증거가 부족할 때, 중복 의심 그룹 하나를 제출한다(같은 작업 기록 2..20 건, 한 번에 모든 의심 구성원을 포괄하며 둘씩 쪼개 제안하지 않음). 사람이 확인하기를 기다리며 자동 병합이 아니다. 유형/자산만 같으면 제출하지 않는다.", []string{"task_id", "finding_ids", "title", "reason"}},
+		{"get_finding_case", "병합 그룹과 구성원을 페이지 단위로 읽는다. 먼저 version 을 기록한 뒤 구성원의 원래 보고, 증거, 트래픽을 읽는다. 버전이 바뀌면 반드시 다시 읽어야 한다.", []string{"case_id"}},
+		{"update_finding_case_report", "통합 보고서와 등급 이유를 저장한다. version 은 반드시 실제로 읽은 것에서 와야 한다. 각 원본 보고를 보존하고 새 취약점을 만들지 않는다.", []string{"case_id", "version", "title", "report", "severity", "severity_reason"}},
 	}
 	out := []actool.CoreTool{}
 	for _, spec := range specs {
@@ -326,14 +326,14 @@ func (s *Server) performFindingCaseTool(ctx context.Context, name string, a find
 		}
 		items, total, strongTotal, err := s.m.pg.FindingCaseCandidates(fid, page, 20, scopes...)
 		return map[string]any{"items": items, "total": total, "strong_total": strongTotal, "page": page, "page_size": 20,
-			"note": "按分数排序；weak 表示未同时具备同漏洞类型和资产重叠，请结合 hit_reasons 核对，仅作参考，通常不应据此建议归并"}, err
+			"note": "점수순 정렬. weak 는 같은 취약점 유형과 자산 겹침을 동시에 갖추지 않음이니 hit_reasons 와 함께 확인하며 참고용으로만 쓰고, 보통 이를 근거로 병합을 제안하면 안 됨"}, err
 	case "get_finding_record":
 		f, err := s.m.pg.GetFinding(fid)
 		if err != nil {
 			return nil, err
 		}
 		if f == nil {
-			return nil, errors.New("漏洞不存在")
+			return nil, errors.New("취약점이 존재하지 않습니다")
 		}
 		dto := s.caseFindingDTO(f)
 		cid, err := s.m.pg.FindingCaseID(f.ID)
@@ -355,7 +355,7 @@ func (s *Server) performFindingCaseTool(ctx context.Context, name string, a find
 	case "suggest_finding_merge":
 		ids := a.ids()
 		if len(ids) < 2 || len(ids) > 20 {
-			return nil, errors.New("疑似重复分组需要2至20条记录")
+			return nil, errors.New("중복 의심 그룹에는 기록이 2 에서 20 건 필요합니다")
 		}
 		id, err := s.m.pg.SuggestFindingCase(ctx, parseProfileID(a.TaskID), ids, a.Title, a.Reason)
 		return map[string]any{"suggestion_id": i64s(id), "finding_ids": ids}, err
@@ -365,7 +365,7 @@ func (s *Server) performFindingCaseTool(ctx context.Context, name string, a find
 			return nil, err
 		}
 		if c == nil {
-			return nil, errors.New("漏洞组不存在")
+			return nil, errors.New("취약점 그룹이 존재하지 않습니다")
 		}
 		fs, total, err := s.m.pg.FindingCaseMembers(cid, page, 20)
 		members := []FindingDTO{}
@@ -380,13 +380,13 @@ func (s *Server) performFindingCaseTool(ctx context.Context, name string, a find
 		err := s.m.pg.UpdateFindingCaseReport(ctx, cid, a.Version, a.Title, a.Report, a.Severity, a.SeverityReason)
 		return map[string]bool{"ok": err == nil}, err
 	}
-	return nil, errors.New("未知归并工具")
+	return nil, errors.New("알 수 없는 병합 도구")
 }
 func idParam(desc string) map[string]any {
 	return map[string]any{"type": "integer", "description": desc}
 }
 func (s *Server) seedFindingCaseTools() {
-	_, _ = s.m.pg.Exec(`UPDATE finding_case_review_runs SET state='failed',error='服务重启中断，请重新提交整理' WHERE state IN ('queued','running')`)
+	_, _ = s.m.pg.Exec(`UPDATE finding_case_review_runs SET state='failed',error='서비스 재시작으로 중단되었습니다. 정리를 다시 제출하세요' WHERE state IN ('queued','running')`)
 	a, err := s.m.pg.GetAgentByKey("reporter")
 	if err != nil || a == nil {
 		return
@@ -425,7 +425,7 @@ func (s *Server) seedFindingCaseTools() {
 	_ = s.m.pg.SetSetting(flag, "true")
 }
 
-const findingCaseReviewTaskMessage = "人工选择整理（只读原始记录）：本任务所选 finding_ids=%s。逐条读取已有报告，仅判断同一实际根因；根因明确相同则直接归并。只有证据指向相同端点、处理器/后端组件、参数或缺失检查等具体共同点，但缺少确认共同根因的关键证据时，才提交一个覆盖2..20条同任务疑似成员的分组，不要拆成两两建议；仅类型或资产相同不足以建议，没有具体共同点时保持 independent，不要因为不确定就提交建议。证据表明属于不同代码路径时可判 independent。已有或新建组应尽力更新统一报告；统一报告暂缺或待更新不阻塞 complete_finding_case_review，可由后续运行或人工补齐。禁止生成或覆盖原始报告、改评级状态、补绑证据，不归并未选记录，不探测目标，遵守人工否决。结束前调用 complete_finding_case_review 提交逐条判断并通过验收。"
+const findingCaseReviewTaskMessage = "수동 선택 정리(원본 기록 읽기 전용): 이 작업에서 선택된 finding_ids=%s. 기존 보고를 하나씩 읽고, 같은 실제 근본 원인인지만 판단한다. 근본 원인이 명확히 같으면 바로 병합한다. 증거가 같은 엔드포인트, 핸들러/백엔드 컴포넌트, 파라미터, 누락된 검사 같은 구체적 공통점을 가리키지만 공통 근본 원인을 확정할 핵심 증거가 부족할 때만, 같은 작업 의심 구성원 2..20 건을 포괄하는 그룹을 제출하며 둘씩 쪼개 제안하지 않는다. 유형이나 자산만 같으면 제안하기에 부족하고, 구체적 공통점이 없으면 independent 를 유지하며 불확실하다는 이유로 제안하지 않는다. 증거가 서로 다른 코드 경로임을 보여 주면 independent 로 판정할 수 있다. 기존 또는 새 그룹은 통합 보고서를 최선을 다해 갱신한다. 통합 보고서가 잠시 없거나 갱신 대기 중이어도 complete_finding_case_review 를 막지 않으며, 이후 실행이나 사람이 보충할 수 있다. 원본 보고를 생성하거나 덮어쓰거나, 등급·상태를 바꾸거나, 증거를 보충 바인딩하는 것이 금지되며, 선택되지 않은 기록을 병합하지 않고, 대상을 탐지하지 않으며, 수동 기각을 지킨다. 끝내기 전에 complete_finding_case_review 를 호출해 기록별 판단을 제출하고 검수를 통과한다."
 
 func (s *Server) reviewFindingCases(w http.ResponseWriter, r *http.Request) {
 	var a findingCaseRequest
@@ -436,11 +436,11 @@ func (s *Server) reviewFindingCases(w http.ResponseWriter, r *http.Request) {
 	if cid := parseProfileID(a.CaseID); cid > 0 {
 		c, err := s.m.pg.GetFindingCase(cid)
 		if err != nil || c == nil || !c.Active {
-			writeErr(w, 400, "漏洞组不可用")
+			writeErr(w, 400, "취약점 그룹을 사용할 수 없습니다")
 			return
 		}
 		if ctx := r.URL.Query().Get("context_task"); ctx != "" && (c.TaskID == nil || ctx != i64s(*c.TaskID)) {
-			writeErr(w, 403, "继承漏洞组只读")
+			writeErr(w, 403, "상속된 취약점 그룹은 읽기 전용입니다")
 			return
 		}
 		fs, _, err := s.m.pg.FindingCaseMembers(cid, 1, 100000)
@@ -454,19 +454,19 @@ func (s *Server) reviewFindingCases(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if len(ids) == 0 || (len(a.CaseID) == 0 && len(ids) > 200) {
-		writeErr(w, 400, "请选择1至200条原始上报")
+		writeErr(w, 400, "원본 보고를 1 에서 200 건 선택하세요")
 		return
 	}
 	reporter, err := s.m.pg.GetAgentByKey("reporter")
 	if err != nil || reporter == nil || !reporter.Enabled || s.chatAgentRef() == nil {
-		writeErr(w, 409, "报告 Agent 未启用或模型不可用")
+		writeErr(w, 409, "보고 Agent 가 활성화되지 않았거나 모델을 사용할 수 없습니다")
 		return
 	}
 	batches := map[int64][]int64{}
 	for _, fid := range ids {
 		f, err := s.m.pg.FindingCaseSummary(fid)
 		if err != nil || f == nil || f.TaskID == nil {
-			writeErr(w, 400, "所选漏洞来源任务不可用")
+			writeErr(w, 400, "선택한 취약점의 출처 작업을 사용할 수 없습니다")
 			return
 		}
 		batches[*f.TaskID] = append(batches[*f.TaskID], fid)
@@ -476,7 +476,7 @@ func (s *Server) reviewFindingCases(w http.ResponseWriter, r *http.Request) {
 	for taskID := range batches {
 		t, ok := s.m.Task(i64s(taskID))
 		if !ok {
-			writeErr(w, 409, "任务不可用")
+			writeErr(w, 409, "작업을 사용할 수 없습니다")
 			return
 		}
 
@@ -493,7 +493,7 @@ func (s *Server) reviewFindingCases(w http.ResponseWriter, r *http.Request) {
 		taskContext := taskContexts[taskID]
 		raw, _ := json.Marshal(fids)
 		msg := fmt.Sprintf(findingCaseReviewTaskMessage, raw)
-		item := triggeredRun{agentKey: "reporter", title: "漏洞整理 · task#" + i64s(taskID), message: msg, taskID: taskID, taskDesc: taskContext.taskDesc, taskGoal: taskContext.taskGoal, conversationID: reservation.ConversationID}
+		item := triggeredRun{agentKey: "reporter", title: "취약점 정리 · task#" + i64s(taskID), message: msg, taskID: taskID, taskDesc: taskContext.taskDesc, taskGoal: taskContext.taskGoal, conversationID: reservation.ConversationID}
 		cfg := s.readTriggerBehavior("reporter")
 		s.queueMu.Lock()
 		s.triggerCfg["reporter"] = cfg
@@ -548,7 +548,7 @@ func (s *Server) checkCaseReviewScope(ctx context.Context, name string, a findin
 		return err
 	}
 	if string(conclusion) != "{}" && (name == "merge_finding_records" || name == "suggest_finding_merge" || name == "update_finding_case_report") {
-		return errors.New("整理判断已提交，不能在验收后继续修改")
+		return errors.New("정리 판단을 이미 제출해 검수 후에는 수정할 수 없습니다")
 	}
 	allowed := map[int64]bool{}
 	for _, id := range ids {
@@ -557,15 +557,15 @@ func (s *Server) checkCaseReviewScope(ctx context.Context, name string, a findin
 	switch name {
 	case "search_finding_duplicates":
 		if !allowed[parseProfileID(a.FindingID)] {
-			return errors.New("历史整理只能检索所选记录的候选")
+			return errors.New("과거 정리는 선택한 기록의 후보만 검색할 수 있습니다")
 		}
 	case "update_finding_report", "bind_finding_traffic", "report_finding":
-		return errors.New("历史整理禁止修改原始报告、上报或证据；只能写归并关系及统一报告")
+		return errors.New("과거 정리는 원본 보고, 상고, 증거 수정이 금지됩니다. 병합 관계와 통합 보고서만 쓸 수 있습니다")
 	case "merge_finding_records", "suggest_finding_merge":
 		checkIDs := a.ids()
 		for _, id := range checkIDs {
 			if !allowed[id] {
-				return errors.New("人工整理只能归并所选记录")
+				return errors.New("수동 정리는 선택한 기록만 병합할 수 있습니다")
 			}
 		}
 	case "update_finding_case_report":
@@ -580,7 +580,7 @@ func (s *Server) checkCaseReviewScope(ctx context.Context, name string, a findin
 			}
 		}
 		if !found {
-			return errors.New("该漏洞组不属于人工所选范围")
+			return errors.New("이 취약점 그룹은 사람이 선택한 범위에 속하지 않습니다")
 		}
 	}
 	return nil

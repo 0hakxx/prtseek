@@ -76,12 +76,12 @@ func (s *Server) listSchedules(w http.ResponseWriter, r *http.Request) {
 func (s *Server) getSchedule(w http.ResponseWriter, r *http.Request) {
 	id, err := parseScheduleID(r)
 	if err != nil {
-		writeErr(w, 400, "计划编号无效")
+		writeErr(w, 400, "예약 번호가 유효하지 않습니다")
 		return
 	}
 	item, err := s.m.pg.GetTaskSchedule(id)
 	if err != nil {
-		writeErr(w, 404, "计划不存在")
+		writeErr(w, 404, "예약이 존재하지 않습니다")
 		return
 	}
 	history, err := s.m.pg.ListScheduleHistory(id)
@@ -126,12 +126,12 @@ func (s *Server) createSchedule(w http.ResponseWriter, r *http.Request) {
 func (s *Server) updateSchedule(w http.ResponseWriter, r *http.Request) {
 	id, err := parseScheduleID(r)
 	if err != nil {
-		writeErr(w, 400, "计划编号无效")
+		writeErr(w, 400, "예약 번호가 유효하지 않습니다")
 		return
 	}
 	old, err := s.m.pg.GetTaskSchedule(id)
 	if err != nil {
-		writeErr(w, 404, "计划不存在")
+		writeErr(w, 404, "예약이 존재하지 않습니다")
 		return
 	}
 	req, err := decodeSchedule(r)
@@ -150,7 +150,7 @@ func (s *Server) updateSchedule(w http.ResponseWriter, r *http.Request) {
 func (s *Server) deleteSchedule(w http.ResponseWriter, r *http.Request) {
 	id, err := parseScheduleID(r)
 	if err != nil {
-		writeErr(w, 400, "计划编号无效")
+		writeErr(w, 400, "예약 번호가 유효하지 않습니다")
 		return
 	}
 	if err := s.m.pg.DeleteTaskSchedule(id); err != nil {
@@ -163,7 +163,7 @@ func (s *Server) deleteSchedule(w http.ResponseWriter, r *http.Request) {
 func (s *Server) setScheduleEnabled(w http.ResponseWriter, r *http.Request, enabled bool) {
 	id, err := parseScheduleID(r)
 	if err != nil {
-		writeErr(w, 400, "计划编号无效")
+		writeErr(w, 400, "예약 번호가 유효하지 않습니다")
 		return
 	}
 	if err := s.m.pg.SetTaskScheduleEnabled(id, enabled); err != nil {
@@ -190,19 +190,19 @@ func (s *Server) resumeSchedule(w http.ResponseWriter, r *http.Request) {
 func (s *Server) runScheduleNow(w http.ResponseWriter, r *http.Request) {
 	id, err := parseScheduleID(r)
 	if err != nil {
-		writeErr(w, 400, "计划编号无效")
+		writeErr(w, 400, "예약 번호가 유효하지 않습니다")
 		return
 	}
 	item, err := s.m.pg.GetTaskSchedule(id)
 	if err != nil {
-		writeErr(w, 404, "计划不存在")
+		writeErr(w, 404, "예약이 존재하지 않습니다")
 		return
 	}
 	if err := s.m.pg.MarkTaskScheduleManual(id); err != nil {
-		writeErr(w, 500, "无法启动计划任务")
+		writeErr(w, 500, "예약 작업을 시작할 수 없습니다")
 		return
 	}
-	_ = s.m.pg.RecordScheduleHistory(id, 0, "running", true, "手动立即运行")
+	_ = s.m.pg.RecordScheduleHistory(id, 0, "running", true, "수동으로 즉시 실행")
 	started, errors := s.runScheduleTasksNow(item)
 	writeJSON(w, 200, map[string]any{"ok": true, "started": started, "errors": errors})
 }
@@ -221,12 +221,12 @@ func (s *Server) startScheduleTasks(item *db.TaskSchedule, forceManualPause bool
 	for _, taskID := range item.TaskIDs {
 		t, ok := s.m.Task(strconv.FormatInt(taskID, 10))
 		if !ok {
-			errors = append(errors, fmt.Sprintf("任务 #%d 未找到", taskID))
+			errors = append(errors, fmt.Sprintf("작업 #%d 를 찾을 수 없습니다", taskID))
 			continue
 		}
 		state := t.lifecycleSnapshot()
 		if db.IsTerminal(state.Status) {
-			errors = append(errors, fmt.Sprintf("任务 #%d 已结束，无法立即运行", taskID))
+			errors = append(errors, fmt.Sprintf("작업 #%d 가 이미 끝나 즉시 실행할 수 없습니다", taskID))
 			continue
 		}
 		if !state.Paused {
@@ -235,26 +235,26 @@ func (s *Server) startScheduleTasks(item *db.TaskSchedule, forceManualPause bool
 		}
 		managed, err := s.m.pg.TaskPausedBySchedule(taskID)
 		if err != nil {
-			errors = append(errors, fmt.Sprintf("任务 #%d 状态读取失败", taskID))
-			_ = s.m.pg.RecordScheduleHistory(item.ID, taskID, "resume", false, "状态读取失败")
+			errors = append(errors, fmt.Sprintf("작업 #%d 상태 읽기 실패", taskID))
+			_ = s.m.pg.RecordScheduleHistory(item.ID, taskID, "resume", false, "상태 읽기 실패")
 			continue
 		}
 		if !managed && !forceManualPause {
-			errors = append(errors, fmt.Sprintf("任务 #%d 由人工暂停，计划不能强制恢复", taskID))
-			_ = s.m.pg.RecordScheduleHistory(item.ID, taskID, "resume", false, "人工暂停优先")
+			errors = append(errors, fmt.Sprintf("작업 #%d 가 사람에 의해 일시 중지되어 예약으로 강제 재개할 수 없습니다", taskID))
+			_ = s.m.pg.RecordScheduleHistory(item.ID, taskID, "resume", false, "수동 일시 중지 우선")
 			continue
 		}
 		_, err = s.applyTaskControlWithCause(t, "resume", agent.AbortPausedByOrchestrator)
 		if err != nil {
-			errors = append(errors, fmt.Sprintf("任务 #%d：%s", taskID, err.Error()))
+			errors = append(errors, fmt.Sprintf("작업 #%d: %s", taskID, err.Error()))
 			_ = s.m.pg.RecordScheduleHistory(item.ID, taskID, "resume", false, err.Error())
 			continue
 		}
 		started++
 		_ = s.m.pg.SetSchedulePaused(item.ID, taskID, false)
-		message := "立即运行"
+		message := "즉시 실행"
 		if !managed && forceManualPause {
-			message = "立即运行（显式恢复人工暂停）"
+			message = "즉시 실행(수동 일시 중지를 명시적으로 재개)"
 		}
 		_ = s.m.pg.RecordScheduleHistory(item.ID, taskID, "resume", true, message)
 	}

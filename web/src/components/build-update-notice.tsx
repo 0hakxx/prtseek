@@ -40,8 +40,8 @@ export function BuildUpdateNotice() {
   if (!changed) return null;
   return (
     <div role="status" data-testid="build-update-notice" className="fixed top-3 left-1/2 z-[100] flex w-[min(36rem,calc(100%-2rem))] -translate-x-1/2 items-center gap-3 border border-border bg-card p-3 text-sm text-card-foreground shadow-lg">
-      <span className="flex-1">程序已更新，当前页面仍是旧版。请先保存输入内容。</span>
-      <button type="button" className="shrink-0 border border-border px-3 py-2 hover:bg-accent" onClick={() => window.location.reload()}>刷新加载新版</button>
+      <span className="flex-1">프로그램이 업데이트되었고 현재 페이지는 여전히 구 버전입니다. 먼저 입력 내용을 저장하세요.</span>
+      <button type="button" className="shrink-0 border border-border px-3 py-2 hover:bg-accent" onClick={() => window.location.reload()}>새로 고쳐 새 버전 불러오기</button>
     </div>
   );
 }

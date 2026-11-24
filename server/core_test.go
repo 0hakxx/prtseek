@@ -67,7 +67,7 @@ func TestCoreTaskLifecycleSQLite(t *testing.T) {
 	}
 
 	// create a task → 201, returns SQLite task (string id + exploration_id)
-	code, out := doRetry("POST", "/api/tasks", map[string]string{"description": "smoke", "goal": "测试 SQLi/XSS"})
+	code, out := doRetry("POST", "/api/tasks", map[string]string{"description": "smoke", "goal": "SQLi/XSS 테스트"})
 	if code != 201 {
 		t.Fatalf("create task: %d (%v)", code, out)
 	}

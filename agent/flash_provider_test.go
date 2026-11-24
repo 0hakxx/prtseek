@@ -82,7 +82,7 @@ func TestFlashIndexedStreamAndRoundTrip(t *testing.T) {
 		if requests.Add(1) == 1 {
 			w.Header().Set("Content-Type", "text/event-stream")
 			frames := []string{
-				`{"choices":[{"delta":{"reasoning_content":"原始思考：先核对两个文件。"}}]}`,
+				`{"choices":[{"delta":{"reasoning_content":"원본 사고: 먼저 두 파일을 확인한다."}}]}`,
 				`{"choices":[{"delta":{"tool_calls":[{"index":0,"id":"a","type":"function","function":{"name":"inspect","arguments":"{\"path\":"}},{"index":1,"id":"b","type":"function","function":{"name":"inspect","arguments":"{\"path\":"}}]}}]}`,
 				`{"choices":[{"delta":{"tool_calls":[{"index":1,"function":{"arguments":"\"second.txt\"}"}},{"index":0,"function":{"arguments":"\"first.txt\"}"}}]}}]}`,
 				`{"choices":[{"delta":{},"finish_reason":"tool_calls"}]}`,
@@ -100,7 +100,7 @@ func TestFlashIndexedStreamAndRoundTrip(t *testing.T) {
 		found := false
 		for _, m := range wire {
 			if m["role"] == "assistant" {
-				if m["reasoning_content"] != "原始思考：先核对两个文件。" {
+				if m["reasoning_content"] != "원본 사고: 먼저 두 파일을 확인한다." {
 					t.Errorf("lost reasoning: %v", m["reasoning_content"])
 				}
 				found = true

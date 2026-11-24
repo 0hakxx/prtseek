@@ -68,7 +68,7 @@ export function flush() {
       // response bodies. Never shrink the request drafts, even if they exceed quota.
       window.localStorage.setItem(STORAGE_KEY, serializeWorkspace(workspace, 0));
     } catch {
-      toast.error("工作区保存失败，浏览器存储空间不足或不可用，请备份请求草稿");
+      toast.error("작업 공간 저장 실패. 브라우저 저장 공간이 부족하거나 사용할 수 없습니다. 요청 초안을 백업하세요");
     }
   }
 }
@@ -176,7 +176,7 @@ export const useRepeaterStore = create<Store>((set, get) => {
       const workspace = current();
       change({
         ...workspace,
-        groups: [...workspace.groups, { id: newId(), name: name?.trim() || `分组 ${workspace.groups.length + 1}` }],
+        groups: [...workspace.groups, { id: newId(), name: name?.trim() || `그룹 ${workspace.groups.length + 1}` }],
       });
     },
     renameGroup: (id, name) => {

@@ -58,22 +58,22 @@ func (r *researchRuntime) observeProgress(ctx context.Context, name, result, id 
 		return ""
 	}
 	r.lastReview = r.stageSteps
-	summary := fmt.Sprintf("自动阶段检查点：已执行 %d 次非轮询工具；最近 %d 次中失败 %d 次，本次响应相同 %d 次。此记录仅描述调用结果，不确认假设或目标完成。", r.stageSteps, len(r.recent), failures, repeats)
-	note := "\n阶段复核：用 research_record 简记当前假设、证据、反证和下一步可区分变量。"
+	summary := fmt.Sprintf("자동 단계 체크포인트: 비폴링 도구를 %d 회 실행함. 최근 %d 회 중 실패 %d 회, 이번 응답과 같은 것 %d 회. 이 기록은 호출 결과만 설명하며 가설이나 목표 완료를 확인하지 않는다.", r.stageSteps, len(r.recent), failures, repeats)
+	note := "\n단계 재검토: research_record 로 현재 가설, 증거, 반증, 다음 단계에서 구분할 변수를 간단히 기록한다."
 	if stalled {
-		note += "跨参数结果重复或多次失败：先检查 Shell/代理/证书/重定向与初始状态，再选择一个能区分假设的对照实验；没有新证据就换来源或明确阻塞，不把相同响应当进展。"
+		note += "파라미터를 바꿔도 결과가 반복되거나 여러 번 실패함: 먼저 Shell/프록시/인증서/리디렉션과 초기 상태를 확인한 뒤, 가설을 구분할 수 있는 대조 실험 하나를 고른다. 새 증거가 없으면 출처를 바꾸거나 차단을 명확히 하며, 같은 응답을 진전으로 여기지 않는다."
 	}
 	if len(ids) > 0 {
 		_, err := r.memory.Record(ctx, ResearchRecordInput{Entry: &ResearchEntryInput{Kind: "hypothesis", Summary: summary, EvidenceIDs: ids}})
 		if err != nil {
-			note += " 自动检查点保存失败: " + err.Error()
+			note += " 자동 체크포인트 저장 실패: " + err.Error()
 		}
 	}
 	return note
 }
 
 func researchExperimentTool(memory *ResearchMemory) actool.CoreTool {
-	return actool.Build(actool.Spec{Name: "research_experiment", Description: "开始可区分假设的实验：记录假设、改变变量、预期观测，分配唯一目录和产物前缀，避免前一实验遗留文件污染验证。目录隔离不等于远程状态已复位；必须先记录基线，再执行实验并用新证据验证。", Schema: map[string]any{
+	return actool.Build(actool.Spec{Name: "research_experiment", Description: "가설을 구분할 수 있는 실험을 시작한다: 가설, 바꾼 변수, 예상 관측을 기록하고, 고유한 디렉터리와 산출물 접두사를 할당해 이전 실험이 남긴 파일이 검증을 오염시키지 않게 한다. 디렉터리 격리가 원격 상태가 초기화되었다는 뜻은 아니다. 반드시 먼저 기준선을 기록한 뒤 실험을 실행하고 새 증거로 검증한다.", Schema: map[string]any{
 		"type": "object", "properties": map[string]any{"hypothesis": map[string]any{"type": "string"}, "changed_variable": map[string]any{"type": "string"}, "prediction": map[string]any{"type": "string"}}, "required": []string{"hypothesis", "changed_variable", "prediction"}},
 		Permissions: func(context.Context, json.RawMessage, permission.Context) permission.Decision {
 			return permission.Decision{Behavior: permission.Allow}
@@ -85,7 +85,7 @@ func researchExperimentTool(memory *ResearchMemory) actool.CoreTool {
 				Prediction      string `json:"prediction"`
 			}
 			if len(raw) > 6000 || json.Unmarshal(raw, &in) != nil || strings.TrimSpace(in.Hypothesis) == "" || strings.TrimSpace(in.ChangedVariable) == "" || strings.TrimSpace(in.Prediction) == "" {
-				return actool.Errorf("需要简短假设、改变变量和预期观测（最多6000字节）"), nil
+				return actool.Errorf("짧은 가설, 바꾼 변수, 예상 관측이 필요합니다(최대 6000 바이트)"), nil
 			}
 			id := "exp-" + rand.Text()
 			path := filepath.Join(".research", "experiments", id)
@@ -97,11 +97,11 @@ func researchExperimentTool(memory *ResearchMemory) actool.CoreTool {
 			if err = root.MkdirAll(path, 0700); err != nil {
 				return actool.Errorf(err.Error()), nil
 			}
-			_, err = memory.Record(ctx, ResearchRecordInput{Entry: &ResearchEntryInput{Kind: "hypothesis", Scope: id, Summary: in.Hypothesis + "；改变变量：" + in.ChangedVariable + "；预期：" + in.Prediction}})
+			_, err = memory.Record(ctx, ResearchRecordInput{Entry: &ResearchEntryInput{Kind: "hypothesis", Scope: id, Summary: in.Hypothesis + "; 바꾼 변수: " + in.ChangedVariable + "; 예상: " + in.Prediction}})
 			if err != nil {
 				return actool.Errorf(err.Error()), nil
 			}
-			out, _ := json.Marshal(map[string]string{"experiment_id": id, "artifact_dir": filepath.ToSlash(path), "artifact_prefix": id, "next": "先检查本实验唯一产物不存在并记录基线；远程实验使用此唯一前缀或经验证的状态复位。重新读取已有产物只能证明观察可重复，不能声称独立复现。"})
+			out, _ := json.Marshal(map[string]string{"experiment_id": id, "artifact_dir": filepath.ToSlash(path), "artifact_prefix": id, "next": "먼저 이 실험의 고유 산출물이 없는지 확인하고 기준선을 기록한다. 원격 실험은 이 고유 접두사나 검증된 상태 초기화를 사용한다. 기존 산출물을 다시 읽는 것은 관찰이 반복 가능하다는 것만 증명하며, 독립 재현을 주장할 수 없다."})
 			return actool.Text(string(out)), nil
 		},
 	})

@@ -8,9 +8,9 @@ import (
 
 func shellEnvironment() string {
 	if runtime.GOOS == "windows" {
-		return "本机 Windows；Bash 工具实际执行 powershell -NoProfile -NonInteractive -Command（Windows PowerShell 5.1）。不要使用 bash heredoc 或 &&；多行脚本先用 Write 保存，再用 python 文件名执行。使用 curl.exe 避免 PowerShell curl 别名；文本文件明确 UTF-8，路径含空格时加引号。HTTP(S) 代理与 CA 已通过环境变量配置；证书失败先核对 CA/代理，不默认关闭验证。"
+		return "로컬 Windows. Bash 도구는 실제로 powershell -NoProfile -NonInteractive -Command(Windows PowerShell 5.1)를 실행한다. bash heredoc 이나 && 를 쓰지 않는다. 여러 줄 스크립트는 먼저 Write 로 저장한 뒤 python 파일명으로 실행한다. PowerShell 의 curl 별칭을 피하려면 curl.exe 를 쓴다. 텍스트 파일은 UTF-8 로 명시하고, 경로에 공백이 있으면 따옴표로 감싼다. HTTP(S) 프록시와 CA 는 환경 변수로 설정되어 있다. 인증서 오류가 나면 먼저 CA/프록시를 확인하고, 기본적으로 검증을 끄지 않는다."
 	}
-	return "本机系统：" + runtime.GOOS + "；Bash 使用系统 shell。HTTP(S) 代理与 CA 通过环境变量配置。"
+	return "로컬 시스템: " + runtime.GOOS + ". Bash 는 시스템 shell 을 사용한다. HTTP(S) 프록시와 CA 는 환경 변수로 설정된다."
 }
 
 type hostShellTool struct{ actool.CoreTool }

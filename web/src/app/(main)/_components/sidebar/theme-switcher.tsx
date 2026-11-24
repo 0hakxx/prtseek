@@ -25,7 +25,7 @@ export function ThemeSwitcher() {
       variant="ghost"
       size="icon"
       onClick={cycleTheme}
-      aria-label={`切换主题（当前${themeMode === "light" ? "浅色" : themeMode === "dark" ? "深色" : "跟随系统"}）`}
+      aria-label={`테마 전환(현재 ${themeMode === "light" ? "밝게" : themeMode === "dark" ? "어둡게" : "시스템 따름"})`}
     >
       {/* SYSTEM */}
       <Monitor className="hidden [html[data-theme-mode=system]_&]:block" />

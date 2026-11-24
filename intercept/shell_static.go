@@ -326,7 +326,7 @@ func generatedScriptWrites(stmt *syntax.Stmt, args []*syntax.Word, dir string, t
 				}
 				path = absolute
 			}
-			writes = append(writes, scriptReference{path: path, generated: true, problem: "命令内脚本写入内容或执行路径不确定"})
+			writes = append(writes, scriptReference{path: path, generated: true, problem: "명령 내 스크립트 쓰기 내용이나 실행 경로가 불확실함"})
 		}
 	}
 	if allowSed && len(writes) == 1 && outputs == 1 && inputs == 0 && !appendOutput && topLevel && !stmt.Background {
@@ -420,7 +420,7 @@ func generatedScriptWrites(stmt *syntax.Stmt, args []*syntax.Word, dir string, t
 			}
 			old, err := readScript(writes[0].path)
 			if err != nil && !os.IsNotExist(err) {
-				writes[0].problem = "脚本追加前内容无法读取：" + err.Error()
+				writes[0].problem = "스크립트 추가 전 내용을 읽을 수 없음: " + err.Error()
 				return writes
 			}
 			content = string(old) + content

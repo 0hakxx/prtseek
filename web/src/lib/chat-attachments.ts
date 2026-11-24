@@ -22,7 +22,7 @@ export async function uploadChatFiles(
   const known = receipts.filter((item) => files.includes(item.file));
   if (missing.length) {
     const result = await upload(missing);
-    if (result.attachments.length !== missing.length) throw new Error("附件上传结果不完整，请重试。");
+    if (result.attachments.length !== missing.length) throw new Error("첨부 파일 업로드 결과가 불완전합니다. 다시 시도하세요.");
     known.push(...missing.map((file, index) => ({ file, attachment: result.attachments[index] })));
   }
   return files.map((file) => known.find((item) => item.file === file)!);

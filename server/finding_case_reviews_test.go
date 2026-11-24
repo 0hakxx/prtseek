@@ -14,66 +14,66 @@ func TestFindingCaseReviewTaskMessagePolicy(t *testing.T) {
 	message := fmt.Sprintf(findingCaseReviewTaskMessage, `[101,102,103]`)
 	for _, want := range []string{
 		"finding_ids=[101,102,103]",
-		"根因明确相同则直接归并",
-		"相同端点、处理器/后端组件、参数或缺失检查",
-		"缺少确认共同根因的关键证据",
-		"一个覆盖2..20条同任务疑似成员的分组",
-		"不要拆成两两建议",
-		"仅类型或资产相同不足以建议",
-		"没有具体共同点时保持 independent",
-		"不同代码路径时可判 independent",
-		"尽力更新统一报告",
-		"统一报告暂缺或待更新不阻塞 complete_finding_case_review",
-		"不归并未选记录",
-		"不探测目标",
-		"遵守人工否决",
+		"근본 원인이 명확히 같으면 바로 병합",
+		"같은 엔드포인트, 핸들러/백엔드 컴포넌트, 파라미터, 누락된 검사",
+		"공통 근본 원인을 확정할 핵심 증거가 부족",
+		"같은 작업 의심 구성원 2..20 건을 포괄하는 그룹",
+		"둘씩 쪼개 제안하지 않는다",
+		"유형이나 자산만 같으면 제안하기에 부족",
+		"구체적 공통점이 없으면 independent 를 유지",
+		"증거가 서로 다른 코드 경로임을 보여 주면 independent 로 판정",
+		"통합 보고서를 최선을 다해 갱신",
+		"통합 보고서가 잠시 없거나 갱신 대기 중이어도 complete_finding_case_review 를 막지 않으며",
+		"선택되지 않은 기록을 병합하지 않고",
+		"대상을 탐지하지 않으며",
+		"수동 기각을 지킨다",
 	} {
 		if !strings.Contains(message, want) {
 			t.Errorf("task message missing policy: %s", want)
 		}
 	}
-	if strings.Contains(message, "不确定提交建议") {
+	if strings.Contains(message, "불확실하면 제안을 제출") {
 		t.Fatal("task message suggests solely because of uncertainty")
 	}
 	schema, err := json.Marshal((&Server{}).toolCompleteFindingCaseReview().InputSchema())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(schema), "没有具体共同点应判 independent") || strings.Contains(string(schema), "不确定则说明缺失证据及已保存建议") {
+	if !strings.Contains(string(schema), "구체적인 공통점이 없으면 independent") || strings.Contains(string(schema), "불확실하면 부족한 증거와 저장된 제안을 설명") {
 		t.Fatal("completion schema must not require suggestions solely because of uncertainty")
 	}
 }
 
-const completeFindingReviewReport = `# 同一权限缺陷
-## 概述
-同一对象权限检查缺失。
-## 影响
-已验证读取其他账号的订单。
-## 前置条件
-已存在的低权会话和订单编号。
-## 复现步骤
-对照自己的订单，再查看其他账号订单，响应证明同一检查缺失。
-## 证据
-原报告的保存响应及命令输出，未重新探测。
+const completeFindingReviewReport = `# 동일 권한 결함
+## 개요
+동일 객체 권한 검사 누락.
+## 영향
+다른 계정의 주문을 읽을 수 있음을 검증함.
+## 전제 조건
+이미 존재하는 저권한 세션과 주문 번호.
+## 재현 절차
+자기 주문과 대조한 뒤 다른 계정 주문을 조회하면, 응답이 동일 검사 누락을 증명함.
+## 증거
+원 보고의 저장 응답과 명령 출력, 재탐지하지 않음.
 ## PoC
-完整命令在原始证据中，此测试使用隔离材料。
-## 根因分析
-同一订单 handler 未验证订单所有者。
-## 修复建议
-统一验证请求者与订单所有者，并回归对象权限检查。
+완전한 명령은 원본 증거에 있으며, 이 테스트는 격리된 자료를 사용함.
+## 근본 원인 분석
+동일 주문 handler 가 주문 소유자를 검증하지 않음.
+## 수정 권고
+요청자와 주문 소유자를 통일 검증하고, 객체 권한 검사를 회귀한다.
 `
 
 func TestUnifiedFindingReportRejectsIncompleteAndTruncated(t *testing.T) {
 	if err := validateUnifiedFindingReport(completeFindingReviewReport); err != nil {
 		t.Fatal(err)
 	}
-	for _, s := range []string{strings.Split(completeFindingReviewReport, "## 根因分析")[0], completeFindingReviewReport + "\n```bash\nunclosed", strings.Replace(completeFindingReviewReport, "统一验证请求者与订单所有者，并回归对象权限检查。", "", 1)} {
+	for _, s := range []string{strings.Split(completeFindingReviewReport, "## 근본 원인 분석")[0], completeFindingReviewReport + "\n```bash\nunclosed", strings.Replace(completeFindingReviewReport, "요청자와 주문 소유자를 통일 검증하고, 객체 권한 검사를 회귀한다.", "", 1)} {
 		if err := validateUnifiedFindingReport(s); err == nil {
 			t.Fatal("incomplete report accepted")
 		}
 	}
 	// Section labels appearing inside a script are not real report sections.
-	if err := validateUnifiedFindingReport("## 概述\ntext\n```bash\n" + completeFindingReviewReport + "\n```"); err == nil {
+	if err := validateUnifiedFindingReport("## 개요\ntext\n```bash\n" + completeFindingReviewReport + "\n```"); err == nil {
 		t.Fatal("script comments counted as sections")
 	}
 }
@@ -90,9 +90,9 @@ func TestFindingCaseReviewCompletionRequiresReadsNotFreshReport(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx := intercept.WithConvID(context.Background(), conv)
-	a := findingReviewConclusion{Summary: "根据对象权限检查的具体证据判断"}
+	a := findingReviewConclusion{Summary: "객체 권한 검사의 구체적 증거에 근거해 판단"}
 	for _, id := range ids {
-		a.Decisions = append(a.Decisions, findingReviewDecision{FindingID: id, Verdict: "merged", Reason: "同一 handler", RootCauseEvidence: "各记录的 baseline/proof 指向同一对象所有者校验缺失"})
+		a.Decisions = append(a.Decisions, findingReviewDecision{FindingID: id, Verdict: "merged", Reason: "동일 handler", RootCauseEvidence: "각 기록의 baseline/proof 가 동일 객체 소유자 검증 누락을 가리킴"})
 	}
 	if err := s.saveFindingReviewConclusion(ctx, conv, a); err == nil {
 		t.Fatal("unread findings accepted")
@@ -158,10 +158,10 @@ func TestFindingCaseReviewSuggestionNeedsSavedSuggestion(t *testing.T) {
 	defer s.m.pg.Exec(`DELETE FROM conversations WHERE id=$1`, conv)
 	s.m.pg.Exec(`UPDATE finding_case_review_runs SET state='running' WHERE conversation_id=$1`, conv)
 	ctx := intercept.WithConvID(context.Background(), conv)
-	a := findingReviewConclusion{Summary: "需人工确认共同组件"}
+	a := findingReviewConclusion{Summary: "공통 컴포넌트를 사람이 확인해야 함"}
 	for _, id := range ids[:2] {
 		s.performFindingCaseTool(ctx, "get_finding_record", findingCaseRequest{FindingID: json.RawMessage(fmt.Sprint(id))})
-		a.Decisions = append(a.Decisions, findingReviewDecision{FindingID: id, Verdict: "suggested", Reason: "同一边界但根因未确认", RootCauseEvidence: "原报告指向对象权限边界，缺少共同组件证据"})
+		a.Decisions = append(a.Decisions, findingReviewDecision{FindingID: id, Verdict: "suggested", Reason: "동일 경계이지만 근본 원인 미확인", RootCauseEvidence: "원 보고가 객체 권한 경계를 가리키지만 공통 컴포넌트 증거가 부족"})
 	}
 	if err := s.saveFindingReviewConclusion(ctx, conv, a); err == nil {
 		t.Fatal("unpersisted suggestion accepted")

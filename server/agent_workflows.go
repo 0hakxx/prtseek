@@ -45,10 +45,10 @@ func (s *Server) initAgentWorkflows() error {
 		}
 	}
 	for _, def := range []struct{ key, name, description, prompt string }{
-		{"triage", "CTF Triage", "CTF 入口与材料盘点：识别题型、附件、授权范围和 flag 线索。", agent.CTFTriagePrompt},
-		{"command", "CTF Command", "CTF 编排与任务分解：建立目标、并行派发 Solver 并收敛证据。", agent.CTFPlannerPrompt},
-		{"solver", "CTF Solver", "CTF 解题执行：分析分派材料、验证链路并回传可复现证据。", agent.CTFWorkerPrompt},
-		{"writeup", "CTF WriteUP", "CTF 交付归档：基于真实证据整理 WRITEUP、EXP 与复现步骤。", agent.CTFWriteupPrompt},
+		{"triage", "CTF Triage", "CTF 진입점과 자료 점검: 문제 유형, 첨부 파일, 권한 범위, flag 단서를 식별한다.", agent.CTFTriagePrompt},
+		{"command", "CTF Command", "CTF 오케스트레이션과 작업 분해: 목표를 세우고 Solver 를 병렬로 분배하며 증거를 수렴한다.", agent.CTFPlannerPrompt},
+		{"solver", "CTF Solver", "CTF 풀이 실행: 분배받은 자료를 분석하고 체인을 검증하며 재현 가능한 증거를 돌려준다.", agent.CTFWorkerPrompt},
+		{"writeup", "CTF WriteUP", "CTF 결과물 정리: 실제 증거를 바탕으로 WRITEUP, EXP, 재현 절차를 정리한다.", agent.CTFWriteupPrompt},
 	} {
 		a, err := pg.GetAgentByKey(def.key)
 		if err != nil {
@@ -68,7 +68,7 @@ func (s *Server) initAgentWorkflows() error {
 			if err = pg.SetAgentRunSeconds(a.Key, seconds); err != nil {
 				return err
 			}
-		} else if a.Description == "" || a.Description == "CTF 模式专用角色，可编辑提示词与模型配置" || a.Description == "默认 CTF 编组角色；可配置提示词、模型与可见资源。" {
+		} else if a.Description == "" || a.Description == "CTF 模式专用角色，可编辑提示词与模型配置" || a.Description == "默认 CTF 编组角色；可配置提示词、模型与可见资源。" || a.Description == "CTF 모드 전용 역할이며 프롬프트와 모델 설정을 편집할 수 있음" || a.Description == "기본 CTF 편성 역할. 프롬프트, 모델, 보이는 리소스를 설정할 수 있음." {
 			if err = pg.UpdateAgentMeta(a.Key, a.Name, def.description); err != nil {
 				return err
 			}
@@ -100,7 +100,7 @@ func workflowEntry(_, key string) (string, error) {
 	}
 	key = strings.TrimSpace(key)
 	if !isDefaultCTFAgent(key) {
-		return "", fmt.Errorf("仅支持默认 CTF Agent")
+		return "", fmt.Errorf("기본 CTF Agent 만 지원합니다")
 	}
 	return key, nil
 }

@@ -30,7 +30,7 @@ export function BasicAuthCard() {
       setPasswordSet(settings.password_set);
       setLoaded(true);
     } catch (e) {
-      setError(`读取失败：${(e as Error).message}`);
+      setError(`읽기 실패: ${(e as Error).message}`);
     }
   }, []);
 
@@ -48,9 +48,9 @@ export function BasicAuthCard() {
       setUsername(settings.username);
       setPasswordSet(settings.password_set);
       setPassword("");
-      toast.success(settings.enabled ? "HTTP Basic Auth 已开启，当前浏览器保持访问" : "HTTP Basic Auth 已关闭");
+      toast.success(settings.enabled ? "HTTP Basic Auth 가 켜졌습니다. 현재 브라우저는 접근을 유지합니다" : "HTTP Basic Auth 가 꺼졌습니다");
     } catch (e) {
-      setError(`保存失败：${(e as Error).message}`);
+      setError(`저장 실패: ${(e as Error).message}`);
     } finally {
       setSaving(false);
     }
@@ -64,14 +64,14 @@ export function BasicAuthCard() {
           HTTP Basic Auth
         </CardTitle>
         <CardDescription>
-          开启后，访客需先通过浏览器原生账号密码验证，再进入 prtseek 登录页。默认关闭，保存后立即生效。
+          켜면 방문자는 먼저 브라우저 기본 계정·비밀번호 인증을 통과한 뒤 prtseek 로그인 페이지로 들어갑니다. 기본 꺼짐이며, 저장하면 즉시 적용됩니다.
         </CardDescription>
       </CardHeader>
       <form onSubmit={save}>
         <CardContent>
           <FieldGroup>
             <Field orientation="horizontal">
-              <FieldLabel htmlFor="basic-auth-enabled">启用访问验证</FieldLabel>
+              <FieldLabel htmlFor="basic-auth-enabled">접근 인증 사용</FieldLabel>
               <Switch
                 id="basic-auth-enabled"
                 checked={enabled}
@@ -80,7 +80,7 @@ export function BasicAuthCard() {
               />
             </Field>
             <Field>
-              <FieldLabel htmlFor="basic-auth-username">验证用户名</FieldLabel>
+              <FieldLabel htmlFor="basic-auth-username">인증 사용자 이름</FieldLabel>
               <Input
                 id="basic-auth-username"
                 autoComplete="off"
@@ -88,12 +88,12 @@ export function BasicAuthCard() {
                 required={enabled}
                 disabled={!loaded || saving}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="独立于 prtseek 登录账号"
+                placeholder="prtseek 로그인 계정과는 별개"
               />
-              <FieldDescription>不能包含冒号，最长 128 字节。</FieldDescription>
+              <FieldDescription>콜론을 포함할 수 없고 최대 128 바이트입니다.</FieldDescription>
             </Field>
             <Field>
-              <FieldLabel htmlFor="basic-auth-password">验证密码</FieldLabel>
+              <FieldLabel htmlFor="basic-auth-password">인증 비밀번호</FieldLabel>
               <Input
                 id="basic-auth-password"
                 type="password"
@@ -102,12 +102,12 @@ export function BasicAuthCard() {
                 required={enabled && !passwordSet}
                 disabled={!loaded || saving}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder={passwordSet ? "已设置，留空保持原密码" : "至少 8 位，最多 72 字节"}
+                placeholder={passwordSet ? "설정됨, 비우면 기존 비밀번호 유지" : "최소 8자, 최대 72 바이트"}
               />
-              <FieldDescription>与 prtseek 登录密码独立。公网访问请使用 HTTPS。</FieldDescription>
+              <FieldDescription>prtseek 로그인 비밀번호와 별개입니다. 공인망 접근에는 HTTPS 를 사용하세요.</FieldDescription>
             </Field>
             <FieldDescription>
-              保存不会中断当前浏览器访问。可用无痕窗口检查验证弹窗；浏览器可能缓存凭据。关闭后保留账号密码，便于再次开启。
+              저장해도 현재 브라우저 접근은 끊기지 않습니다. 시크릿 창으로 인증 팝업을 확인할 수 있습니다. 브라우저가 자격 증명을 캐시할 수 있습니다. 끈 뒤에도 계정·비밀번호는 유지되어 다시 켜기 편합니다.
             </FieldDescription>
             {error ? (
               <p role="alert" className="text-destructive text-sm">
@@ -118,11 +118,11 @@ export function BasicAuthCard() {
         </CardContent>
         <CardFooter className="mt-4 gap-2">
           <Button type="submit" disabled={!loaded || saving}>
-            {saving ? "保存中…" : "保存访问验证"}
+            {saving ? "저장 중…" : "접근 인증 저장"}
           </Button>
           {!loaded && error ? (
             <Button type="button" variant="outline" onClick={load}>
-              重新加载
+              다시 로드
             </Button>
           ) : null}
         </CardFooter>

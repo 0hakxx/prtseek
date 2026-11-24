@@ -118,7 +118,7 @@ func (s *Server) conversationFiles(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			if err != nil {
-				writeErr(w, 500, "无法读取会话文件")
+				writeErr(w, 500, "대화 파일을 읽을 수 없습니다")
 				return
 			}
 			walk := func(path string, d fs.DirEntry, walkErr error) error {
@@ -209,24 +209,24 @@ func (s *Server) conversationFile(w http.ResponseWriter, r *http.Request) {
 	}
 	path := r.URL.Query().Get("path")
 	if !allowed || !filepath.IsLocal(path) || strings.Contains(path, "\\") {
-		writeErr(w, 400, "非法会话文件路径")
+		writeErr(w, 400, "잘못된 대화 파일 경로")
 		return
 	}
 	root, err := os.OpenRoot(s.conversationWorkDir(id))
 	if err != nil {
-		writeErr(w, 404, "文件不存在")
+		writeErr(w, 404, "파일이 존재하지 않습니다")
 		return
 	}
 	defer root.Close()
 	f, err := root.Open(path)
 	if err != nil {
-		writeErr(w, 404, "文件不存在或不可访问")
+		writeErr(w, 404, "파일이 없거나 접근할 수 없습니다")
 		return
 	}
 	defer f.Close()
 	info, err := f.Stat()
 	if err != nil || !info.Mode().IsRegular() {
-		writeErr(w, 400, "不是普通文件")
+		writeErr(w, 400, "일반 파일이 아닙니다")
 		return
 	}
 	if r.URL.Query().Get("download") == "1" {
@@ -241,7 +241,7 @@ func (s *Server) conversationFile(w http.ResponseWriter, r *http.Request) {
 	}
 	data, err := io.ReadAll(io.LimitReader(f, previewLimit+1))
 	if err != nil {
-		writeErr(w, 500, "读取失败")
+		writeErr(w, 500, "읽기 실패")
 		return
 	}
 	if len(data) > previewLimit || !utf8.Valid(data) || strings.ContainsRune(string(data), 0) {

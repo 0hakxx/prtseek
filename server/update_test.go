@@ -10,9 +10,9 @@ import (
 	"github.com/Autumn-27/artex/selfupdate"
 )
 
-// releaseCache 是保护 GitHub 配额的那一层：未认证的 API 只有 60 次/小时/IP，
-// 而顶栏的"有新版本"提示每次整页加载都会查一次。缓存一旦失效，用户多开几个
-// 标签页就会把配额耗光，之后真想更新反而查不动。
+// releaseCache 는 GitHub 할당량을 보호하는 계층이다: 미인증 API 는 시간당 IP 당 60 회뿐이고,
+// 상단바의 "새 버전 있음" 안내는 매 전체 로드마다 한 번씩 조회한다. 캐시가 무효화되면 사용자가
+// 탭 몇 개를 더 열자마자 할당량이 소진되어, 정작 업데이트하고 싶을 때 조회가 안 된다.
 
 func newTestCache(fetch func(context.Context, *http.Client) (*selfupdate.Release, error)) *releaseCache {
 	return &releaseCache{fetch: fetch}
@@ -35,7 +35,7 @@ func TestReleaseCacheServesFromCache(t *testing.T) {
 		}
 	}
 	if calls != 1 {
-		t.Errorf("5 次查询只应回源 1 次，实际 %d 次", calls)
+		t.Errorf("5 번 조회에 1 번만 원본으로 가야 하는데 실제 %d 번", calls)
 	}
 }
 
@@ -49,12 +49,12 @@ func TestReleaseCacheForceBypasses(t *testing.T) {
 	if _, err := c.get(t.Context(), nil, false, ""); err != nil {
 		t.Fatal(err)
 	}
-	// 用户点「检查更新」必须拿到实时结果，否则刚发布的版本要等缓存过期才看得见。
+	// 사용자가 「업데이트 확인」을 누르면 반드시 실시간 결과를 받아야 한다. 그러지 않으면 방금 공개된 버전은 캐시 만료를 기다려야만 보인다.
 	if _, err := c.get(t.Context(), nil, true, ""); err != nil {
 		t.Fatal(err)
 	}
 	if calls != 2 {
-		t.Errorf("force 应绕过缓存，期望回源 2 次，实际 %d 次", calls)
+		t.Errorf("force 는 캐시를 우회해야 하므로 원본 2 번을 기대했는데 실제 %d 번", calls)
 	}
 }
 
@@ -68,13 +68,13 @@ func TestReleaseCacheExpiresAfterTTL(t *testing.T) {
 	if _, err := c.get(t.Context(), nil, false, ""); err != nil {
 		t.Fatal(err)
 	}
-	// 把落库时间往前拨到刚过期，模拟 TTL 到点。
+	// DB 저장 시각을 막 지난 시점으로 앞당겨 TTL 만료를 흉내 낸다.
 	c.at = time.Now().Add(-releaseTTL - time.Second)
 	if _, err := c.get(t.Context(), nil, false, ""); err != nil {
 		t.Fatal(err)
 	}
 	if calls != 2 {
-		t.Errorf("TTL 过期后应重新回源，期望 2 次，实际 %d 次", calls)
+		t.Errorf("TTL 만료 후에는 원본으로 다시 가야 하므로 2 번을 기대했는데 실제 %d 번", calls)
 	}
 }
 
@@ -82,30 +82,30 @@ func TestReleaseCacheUsesShorterTTLForErrors(t *testing.T) {
 	calls := 0
 	c := newTestCache(func(context.Context, *http.Client) (*selfupdate.Release, error) {
 		calls++
-		return nil, errors.New("github 不可达")
+		return nil, errors.New("github 도달 불가")
 	})
 
 	if _, err := c.get(t.Context(), nil, false, ""); err == nil {
-		t.Fatal("期望返回错误")
+		t.Fatal("오류 반환을 기대함")
 	}
-	// 失败结果也要缓存一会儿，否则 GitHub 不可达时每次页面加载都白等一次超时。
+	// 실패 결과도 잠시 캐시해야 한다. 그러지 않으면 GitHub 도달 불가 시 매 페이지 로드마다 한 번씩 헛되이 타임아웃을 기다린다.
 	if _, err := c.get(t.Context(), nil, false, ""); err == nil {
-		t.Fatal("期望返回错误")
+		t.Fatal("오류 반환을 기대함")
 	}
 	if calls != 1 {
-		t.Errorf("错误应短时缓存，期望回源 1 次，实际 %d 次", calls)
+		t.Errorf("오류는 짧게 캐시해야 하므로 원본 1 번을 기대했는데 실제 %d 번", calls)
 	}
 
-	// 但错误的 TTL 必须明显短于成功的，网络恢复后要能很快自愈。
+	// 그러나 오류의 TTL 은 반드시 성공보다 뚜렷이 짧아야 함. 네트워크가 복구되면 금방 자가 치유되어야 한다.
 	if releaseErrTTL >= releaseTTL {
-		t.Fatalf("错误 TTL(%v) 必须短于成功 TTL(%v)", releaseErrTTL, releaseTTL)
+		t.Fatalf("오류 TTL(%v) 은 성공 TTL(%v) 보다 짧아야 함", releaseErrTTL, releaseTTL)
 	}
 	c.at = time.Now().Add(-releaseErrTTL - time.Second)
 	if _, err := c.get(t.Context(), nil, false, ""); err == nil {
-		t.Fatal("期望返回错误")
+		t.Fatal("오류 반환을 기대함")
 	}
 	if calls != 2 {
-		t.Errorf("错误 TTL 过期后应重试，期望 2 次，实际 %d 次", calls)
+		t.Errorf("오류 TTL 만료 후에는 재시도해야 하므로 2 번을 기대했는데 실제 %d 번", calls)
 	}
 }
 
@@ -118,39 +118,39 @@ func TestReleaseCacheDoesNotPoisonOnCallerCancel(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 访客关掉标签页会取消请求。那不代表 GitHub 有问题，绝不能把"已取消"
-	// 写进缓存——否则接下来 30 分钟内每个访客都会收到一条莫名其妙的错误。
+	// 방문자가 탭을 닫으면 요청이 취소된다. 그것은 GitHub 에 문제가 있다는 뜻이 아니므로 「취소됨」을
+	// 절대 캐시에 쓰면 안 된다——그러지 않으면 다음 30 분 동안 방문자마다 알 수 없는 오류를 받는다.
 	c.fetch = func(ctx context.Context, _ *http.Client) (*selfupdate.Release, error) {
 		return nil, ctx.Err()
 	}
-	c.at = time.Now().Add(-releaseTTL - time.Second) // 让缓存过期，逼它回源
+	c.at = time.Now().Add(-releaseTTL - time.Second) // 캐시 만료, 강제로 원본 가게 함
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	if _, err := c.get(ctx, nil, false, ""); err == nil {
-		t.Fatal("调用方已取消时应把错误透传给它")
+		t.Fatal("호출자가 이미 취소했으면 오류를 그대로 전달해야 함")
 	}
 
-	// 关键不变量：被取消的那一次不留下任何痕迹——缓存里既没有"已取消"这个错误，
-	// 也还保着上一次的好结果。
+	// 핵심 불변량: 취소된 그 한 번은 어떤 흔적도 남기면 안 된다——캐시에 「취소됨」 오류가 없고,
+	// 지난번의 좋은 결과도 그대로 유지되어야 한다.
 	if c.err != nil {
-		t.Fatalf("取消错误不应写进缓存，得到 %v", c.err)
+		t.Fatalf("취소 오류가 캐시에 써지면 안 되는데 %v 얻음", c.err)
 	}
 	if c.rel == nil || c.rel.TagName != "v0.3.8" {
-		t.Fatalf("缓存应保留上一次的好结果，得到 %+v", c.rel)
+		t.Fatalf("캐시는 지난번의 좋은 결과를 유지해야 하는데 %+v 얻음", c.rel)
 	}
 
-	// 那次取消没换来任何新数据，所以下一个访客理应重新回源——而且能正常拿到结果，
-	// 不会被上一次的取消连累。
+	// 그 취소가 어떤 새 데이터도 가져오지 않았으므로, 다음 방문자는 마땅히 원본으로 다시 가야 한다——
+	// 그리고 정상적으로 결과를 받아야 하며, 지난번 취소에 영향받으면 안 된다.
 	c.fetch = func(context.Context, *http.Client) (*selfupdate.Release, error) {
 		return good, nil
 	}
 	rel, err := c.get(t.Context(), nil, false, "")
 	if err != nil {
-		t.Fatalf("取消之后的正常请求不应报错: %v", err)
+		t.Fatalf("취소 후의 정상 요청은 오류를 내면 안 됨: %v", err)
 	}
 	if rel == nil || rel.TagName != "v0.3.8" {
-		t.Fatalf("应拿到正常结果，得到 %+v", rel)
+		t.Fatalf("정상 결과를 받아야 하는데 %+v 얻음", rel)
 	}
 }
 

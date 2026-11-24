@@ -105,7 +105,7 @@ func insertPersonalHandoff(tx *sql.Tx, task *Task, h *PersonalHandoffInput) erro
  VALUES ($1,$2,$3,$4,$5,$6)`, h.ConversationID, task.ID, h.IdempotencyKey, h.SourceCursor, h.Checkpoint, string(h.ConfigSnapshot)); err != nil {
 		return err
 	}
-	payload, _ := json.Marshal(map[string]any{"text": h.Checkpoint, "summary": "前台会话交接记录（含原始记录与文件位置）", "source_conversation_id": h.ConversationID, "source_cursor": h.SourceCursor})
+	payload, _ := json.Marshal(map[string]any{"text": h.Checkpoint, "summary": "포그라운드 대화 인수인계 기록(원본 기록과 파일 위치 포함)", "source_conversation_id": h.ConversationID, "source_cursor": h.SourceCursor})
 	_, err := tx.Exec(`INSERT INTO exploration_nodes(exploration_id,kind,payload,priority,state,origin) VALUES($1,'hint',$2,10,'active','human')`, task.ExplorationID, string(payload))
 	return err
 }

@@ -91,11 +91,11 @@ var toolpackVersionRE = regexp.MustCompile(`^v?[0-9]+\.[0-9]+\.[0-9]+(?:[-.][A-Z
 func newToolpackManager(dataDir string) *toolpackManager {
 	root, _ := filepath.Abs(filepath.Join(dataDir, "toolpacks"))
 	m := &toolpackManager{root: root, client: &http.Client{Transport: newToolpackHTTPTransport(), Timeout: 60 * time.Second}, downloadIdleTimeout: 90 * time.Second}
-	m.state = toolpackState{ID: "nuclei", Name: "Nuclei", Description: "模板检测引擎；按需安装，在当前任务范围内使用明确选定的模板。", Status: "not_installed", InstallDirectory: root}
+	m.state = toolpackState{ID: "nuclei", Name: "Nuclei", Description: "템플릿 탐지 엔진. 필요할 때 설치하고, 현재 작업 범위 안에서 명확히 선택한 템플릿을 사용한다.", Status: "not_installed", InstallDirectory: root}
 	if b, err := os.ReadFile(filepath.Join(root, "state.json")); err == nil {
 		if json.Unmarshal(b, &m.state) != nil {
 			m.state.Status = "failed"
-			m.state.Error = "安装状态文件损坏，请重新安装"
+			m.state.Error = "설치 상태 파일이 손상되었습니다. 다시 설치하세요"
 		}
 	}
 	m.state.InstallDirectory = root
@@ -104,12 +104,12 @@ func newToolpackManager(dataDir string) *toolpackManager {
 		if c.Path != "" && !withinToolpackRoot(root, c.Path) {
 			m.state.Enabled = false
 			m.state.Status = "failed"
-			m.state.Error = "安装状态中的路径不属于本实例，请重新安装"
+			m.state.Error = "설치 상태의 경로가 이 인스턴스에 속하지 않습니다. 다시 설치하세요"
 		}
 	}
 	if m.state.Status == "installing" {
 		m.state.Status = "failed"
-		m.state.Error = "上次安装被中断，可重新安装；原有可用版本保留"
+		m.state.Error = "지난 설치가 중단되었습니다. 다시 설치할 수 있으며, 기존의 사용 가능한 버전은 유지됩니다"
 	}
 	return m
 }
@@ -185,7 +185,7 @@ func (s *Server) toolpackAction(w http.ResponseWriter, r *http.Request) {
 	case "enable", "disable":
 		m.mu.Lock()
 		if in.Action == "enable" && (m.state.Engine.Path == "" || m.state.Templates.Path == "") {
-			err = errors.New("请先完成引擎和模板安装")
+			err = errors.New("먼저 엔진과 템플릿 설치를 완료하세요")
 		} else {
 			m.state.Enabled = in.Action == "enable"
 			err = m.persistLocked()
@@ -196,7 +196,7 @@ func (s *Server) toolpackAction(w http.ResponseWriter, r *http.Request) {
 	case "uninstall":
 		err = m.uninstall()
 	default:
-		writeErr(w, 400, "未知工具操作")
+		writeErr(w, 400, "알 수 없는 도구 작업")
 		return
 	}
 	if err != nil {
@@ -219,11 +219,11 @@ func (m *toolpackManager) get(ctx context.Context, addr string, max int64) ([]by
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("下载源返回 HTTP %d", resp.StatusCode)
+		return nil, fmt.Errorf("다운로드 소스가 HTTP %d 를 반환했습니다", resp.StatusCode)
 	}
 	b, err := io.ReadAll(io.LimitReader(resp.Body, max+1))
 	if err == nil && int64(len(b)) > max {
-		err = errors.New("下载内容超过限制")
+		err = errors.New("다운로드 내용이 제한을 초과했습니다")
 	}
 	return b, err
 }
@@ -235,7 +235,7 @@ func (m *toolpackManager) release(ctx context.Context, repo string) (toolpackRel
 		err = json.Unmarshal(b, &rel)
 	}
 	if err == nil && !toolpackVersionRE.MatchString(rel.Tag) {
-		err = errors.New("发布版本号不合法或没有可用版本")
+		err = errors.New("릴리스 버전 번호가 올바르지 않거나 사용 가능한 버전이 없습니다")
 	}
 	return rel, err
 }
@@ -278,12 +278,12 @@ func checksumFor(body []byte, name string) (string, error) {
 			h := strings.ToLower(fields[0])
 			b, err := hex.DecodeString(h)
 			if err != nil || len(b) != 32 {
-				return "", errors.New("校验清单中的 SHA-256 无效")
+				return "", errors.New("검증 목록의 SHA-256 이 유효하지 않습니다")
 			}
 			return h, nil
 		}
 	}
-	return "", fmt.Errorf("官方校验清单未包含 %s", name)
+	return "", fmt.Errorf("공식 검증 목록에 %s 가 없습니다", name)
 }
 
 func (m *toolpackManager) discover(ctx context.Context) (toolpackCatalog, error) {
@@ -302,7 +302,7 @@ func (m *toolpackManager) discover(ctx context.Context) (toolpackCatalog, error)
 	}
 	rel, err := m.release(ctx, "nuclei")
 	if err != nil {
-		return c, fmt.Errorf("获取 Nuclei 版本失败: %w", err)
+		return c, fmt.Errorf("Nuclei 버전 가져오기 실패: %w", err)
 	}
 	name := "nuclei_" + strings.TrimPrefix(rel.Tag, "v") + "_" + osName + "_" + runtime.GOARCH + ".zip"
 	checksumURL := ""
@@ -317,10 +317,10 @@ func (m *toolpackManager) discover(ctx context.Context) (toolpackCatalog, error)
 		}
 	}
 	if c.Engine.URL == "" {
-		return c, fmt.Errorf("Nuclei 官方未提供 %s 原生包", c.Platform)
+		return c, fmt.Errorf("Nuclei 공식이 %s 네이티브 패키지를 제공하지 않습니다", c.Platform)
 	}
 	if !officialToolpackURL(c.Engine.URL, "nuclei") || !officialToolpackURL(checksumURL, "nuclei") {
-		return c, errors.New("发布包来源不是官方地址")
+		return c, errors.New("릴리스 패키지 출처가 공식 주소가 아닙니다")
 	}
 	b, err := m.get(ctx, checksumDownloadURL, 1<<20)
 	if err != nil {
@@ -331,12 +331,12 @@ func (m *toolpackManager) discover(ctx context.Context) (toolpackCatalog, error)
 		return c, err
 	}
 	if c.Engine.SHA256 != "" && c.Engine.SHA256 != verified {
-		return c, errors.New("发布元数据与校验清单不一致")
+		return c, errors.New("릴리스 메타데이터가 검증 목록과 일치하지 않습니다")
 	}
 	c.Engine.SHA256 = verified
 	tpl, err := m.release(ctx, "nuclei-templates")
 	if err != nil {
-		return c, fmt.Errorf("获取模板版本失败: %w", err)
+		return c, fmt.Errorf("템플릿 버전 가져오기 실패: %w", err)
 	}
 	tplName := "nuclei-templates-" + strings.TrimPrefix(tpl.Tag, "v") + ".zip"
 	checksumURL = ""
@@ -348,7 +348,7 @@ func (m *toolpackManager) discover(ctx context.Context) (toolpackCatalog, error)
 		}
 	}
 	if !officialToolpackURL(checksumURL, "nuclei-templates") {
-		return c, errors.New("模板缺少官方校验清单")
+		return c, errors.New("템플릿에 공식 검증 목록이 없습니다")
 	}
 	b, err = m.get(ctx, checksumDownloadURL, 1<<20)
 	if err != nil {
@@ -370,18 +370,18 @@ func (m *toolpackManager) install(parent context.Context, component string) erro
 		component = "all"
 	}
 	if component != "all" && component != "engine" && component != "templates" {
-		return errors.New("component 需为 all、engine 或 templates")
+		return errors.New("component 는 all, engine 또는 templates 여야 합니다")
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.cancel != nil {
-		return errors.New("安装正在进行，请等待或取消")
+		return errors.New("설치가 진행 중입니다. 기다리거나 취소하세요")
 	}
 	wasComplete := m.state.Engine.Path != "" && m.state.Templates.Path != ""
 	ctx, cancel := context.WithCancel(parent)
 	m.cancel = cancel
 	m.state.Status = "installing"
-	m.state.Stage = "获取官方版本和校验信息"
+	m.state.Stage = "공식 버전과 검증 정보 가져오기"
 	m.state.Error = ""
 	m.state.Downloaded = 0
 	m.state.Total = 0
@@ -408,7 +408,7 @@ func (m *toolpackManager) install(parent context.Context, component string) erro
 			m.state.Error = err.Error()
 			if errors.Is(err, context.Canceled) {
 				m.state.Status = "cancelled"
-				m.state.Error = "安装已取消；已完成组件和下载缓存保留，可继续安装"
+				m.state.Error = "설치가 취소되었습니다. 완료된 컴포넌트와 다운로드 캐시는 유지되어 계속 설치할 수 있습니다"
 			}
 		} else {
 			m.state.Status = "ready"
@@ -418,7 +418,7 @@ func (m *toolpackManager) install(parent context.Context, component string) erro
 		}
 		if e := m.persistLocked(); e != nil {
 			m.state.Status = "failed"
-			m.state.Error = "保存安装状态失败: " + e.Error()
+			m.state.Error = "설치 상태 저장 실패: " + e.Error()
 		} else {
 			m.cleanupObsoleteLocked()
 		}
@@ -464,7 +464,7 @@ func extractToolpackZip(ctx context.Context, archive, dest string) error {
 	defer r.Close()
 	var expanded uint64
 	if len(r.File) > 100000 {
-		return errors.New("压缩包文件数超限")
+		return errors.New("압축 패키지의 파일 수가 제한을 초과했습니다")
 	}
 	for _, z := range r.File {
 		if err := ctx.Err(); err != nil {
@@ -472,15 +472,15 @@ func extractToolpackZip(ctx context.Context, archive, dest string) error {
 		}
 		name := strings.ReplaceAll(z.Name, "\\", "/")
 		if strings.Contains(name, ":") || strings.HasPrefix(name, "/") || z.Mode()&os.ModeSymlink != 0 {
-			return fmt.Errorf("不安全的压缩包条目: %s", z.Name)
+			return fmt.Errorf("안전하지 않은 압축 패키지 항목: %s", z.Name)
 		}
 		target := filepath.Join(dest, filepath.FromSlash(name))
 		if !withinToolpackRoot(dest, target) {
-			return errors.New("压缩包包含越界路径")
+			return errors.New("압축 패키지에 범위를 벗어난 경로가 있습니다")
 		}
 		expanded += z.UncompressedSize64
 		if expanded > 2<<30 {
-			return errors.New("解压后大小超过 2 GiB")
+			return errors.New("압축을 푼 뒤 크기가 2 GiB 를 초과합니다")
 		}
 		if z.FileInfo().IsDir() {
 			if err = os.MkdirAll(target, 0700); err != nil {
@@ -515,7 +515,7 @@ func extractToolpackZip(ctx context.Context, archive, dest string) error {
 
 func (m *toolpackManager) installComponent(ctx context.Context, kind string, a toolpackAsset) error {
 	if !toolpackVersionRE.MatchString(a.Version) {
-		return errors.New("非法版本")
+		return errors.New("유효하지 않은 버전")
 	}
 	if err := os.MkdirAll(m.root, 0700); err != nil {
 		return err
@@ -530,7 +530,7 @@ func (m *toolpackManager) installComponent(ctx context.Context, kind string, a t
 		}
 	}()
 	m.mu.Lock()
-	m.state.Stage = "下载并校验 " + a.Name
+	m.state.Stage = "다운로드 및 검증 " + a.Name
 	m.state.Downloaded = 0
 	m.state.Total = a.Size
 	m.mu.Unlock()
@@ -543,7 +543,7 @@ func (m *toolpackManager) installComponent(ctx context.Context, kind string, a t
 		return err
 	}
 	m.mu.Lock()
-	m.state.Stage = "解压并检查 " + kind
+	m.state.Stage = "압축 해제 및 검사 " + kind
 	m.mu.Unlock()
 	if err = extractToolpackZip(ctx, archive, dir); err != nil {
 		return err
@@ -555,17 +555,17 @@ func (m *toolpackManager) installComponent(ctx context.Context, kind string, a t
 			bin += ".exe"
 		}
 		if _, err = os.Stat(filepath.Join(root, bin)); err != nil {
-			return errors.New("发布包中没有 Nuclei 可执行文件")
+			return errors.New("릴리스 패키지에 Nuclei 실행 파일이 없습니다")
 		}
 		if runtime.GOOS != "windows" {
 			_ = os.Chmod(filepath.Join(root, bin), 0700)
 		}
 		out, err := m.version(ctx, filepath.Join(root, bin))
 		if err != nil {
-			return fmt.Errorf("程序自检失败: %w", err)
+			return fmt.Errorf("프로그램 자체 검사 실패: %w", err)
 		}
 		if !strings.Contains(out, strings.TrimPrefix(a.Version, "v")) {
-			return errors.New("程序版本与发布包版本不一致")
+			return errors.New("프로그램 버전이 릴리스 패키지 버전과 일치하지 않습니다")
 		}
 	} else {
 		entries, err := os.ReadDir(dir)
@@ -573,17 +573,17 @@ func (m *toolpackManager) installComponent(ctx context.Context, kind string, a t
 			return err
 		}
 		if len(entries) != 1 || !entries[0].IsDir() {
-			return errors.New("模板目录结构不符合官方发布包")
+			return errors.New("템플릿 디렉터리 구조가 공식 릴리스 패키지와 맞지 않습니다")
 		}
 		root = filepath.Join(dir, entries[0].Name())
 		if _, err = os.Stat(filepath.Join(root, "http")); err != nil {
-			return errors.New("模板包缺少 http 模板目录")
+			return errors.New("템플릿 패키지에 http 템플릿 디렉터리가 없습니다")
 		}
 	}
 	// Unique destinations preserve versions referenced by in-flight executions.
 	dest := filepath.Join(m.root, kind, a.Version+"-"+fmt.Sprint(time.Now().UnixNano()))
 	if !withinToolpackRoot(m.root, dest) {
-		return errors.New("安装路径越界")
+		return errors.New("설치 경로가 범위를 벗어났습니다")
 	}
 	if err = os.MkdirAll(filepath.Dir(dest), 0700); err != nil {
 		return err
@@ -604,7 +604,7 @@ func (m *toolpackManager) installComponent(ctx context.Context, kind string, a t
 
 func (m *toolpackManager) version(ctx context.Context, bin string) (string, error) {
 	if !withinToolpackRoot(m.root, bin) {
-		return "", errors.New("程序路径不属于本实例")
+		return "", errors.New("프로그램 경로가 이 인스턴스에 속하지 않습니다")
 	}
 	if m.versionProbe != nil {
 		return m.versionProbe(ctx, bin)
@@ -643,11 +643,11 @@ func (m *toolpackManager) check(ctx context.Context) error {
 	m.mu.Lock()
 	if m.state.Engine.Path == "" {
 		m.mu.Unlock()
-		return errors.New("尚未安装引擎")
+		return errors.New("아직 엔진을 설치하지 않았습니다")
 	}
 	if m.cancel != nil {
 		m.mu.Unlock()
-		return errors.New("安装完成后再检测")
+		return errors.New("설치가 완료된 뒤에 검사하세요")
 	}
 	m.state.Running++
 	bin := m.executable(m.state.Engine)
@@ -659,7 +659,7 @@ func (m *toolpackManager) check(ctx context.Context) error {
 	m.state.LastCheck = time.Now().UTC().Format(time.RFC3339)
 	m.state.CheckOutput = out
 	if err != nil {
-		m.state.Error = "自检失败: " + err.Error()
+		m.state.Error = "자체 검사 실패: " + err.Error()
 	} else {
 		m.state.Error = ""
 	}
@@ -696,12 +696,12 @@ func (m *toolpackManager) uninstall() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.cancel != nil || m.state.Running > 0 {
-		return errors.New("安装或调用正在进行，结束后才能卸载")
+		return errors.New("설치나 호출이 진행 중입니다. 끝난 뒤에야 제거할 수 있습니다")
 	}
 	for _, name := range []string{"engine", "templates", "runtime", "cache"} {
 		p := filepath.Join(m.root, name)
 		if !withinToolpackRoot(m.root, p) {
-			return errors.New("卸载路径越界")
+			return errors.New("제거 경로가 범위를 벗어났습니다")
 		}
 		if err := os.RemoveAll(p); err != nil {
 			return err
@@ -725,7 +725,7 @@ func (s *Server) toolpackTools() []actool.CoreTool {
 	if !state.Enabled || state.Engine.Path == "" || state.Templates.Path == "" {
 		return nil
 	}
-	return []actool.CoreTool{roTool("nuclei_templates", "按关键词检索已安装的官方 Nuclei 模板，返回可交给 nuclei_scan 的相对路径。只查本地文件，不访问目标。", objSchema(map[string]any{"query": strParam("模板路径关键词，例如 technology 或已知产品名；不能为空")}, "query"), func(ctx context.Context, raw json.RawMessage) (actool.Result, error) {
+	return []actool.CoreTool{roTool("nuclei_templates", "키워드로 설치된 공식 Nuclei 템플릿을 검색해, nuclei_scan 에 넘길 수 있는 상대 경로를 반환한다. 로컬 파일만 조회하며 대상에 접근하지 않는다.", objSchema(map[string]any{"query": strParam("템플릿 경로 키워드, 예: technology 나 알려진 제품 이름. 비울 수 없음")}, "query"), func(ctx context.Context, raw json.RawMessage) (actool.Result, error) {
 		var in struct {
 			Query string `json:"query"`
 		}
@@ -734,11 +734,11 @@ func (s *Server) toolpackTools() []actool.CoreTool {
 		}
 		q := strings.ToLower(strings.TrimSpace(in.Query))
 		if q == "" {
-			return actool.Errorf("请提供模板关键词"), nil
+			return actool.Errorf("템플릿 키워드를 제공하세요"), nil
 		}
 		current := m.snapshot()
 		if !current.Enabled || !withinToolpackRoot(m.root, current.Templates.Path) {
-			return actool.Errorf("模板未就绪或工具已禁用"), nil
+			return actool.Errorf("템플릿이 준비되지 않았거나 도구가 비활성화되었습니다"), nil
 		}
 		var results []string
 		err := filepath.WalkDir(current.Templates.Path, func(p string, d os.DirEntry, err error) error {
@@ -765,9 +765,9 @@ func (s *Server) toolpackTools() []actool.CoreTool {
 			return actool.Errorf(err.Error()), nil
 		}
 		return jsonResult(map[string]any{"templates": results, "limit": 50})
-	}), wrTool("nuclei_scan", "使用本实例安装的 Nuclei 对当前任务已授权的 URL 执行明确选定的模板。先用 nuclei_templates 查模板路径。模板匹配只是候选结果，仍需核对证据，不自动登记为确认漏洞。", objSchema(map[string]any{
-		"targets":   map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "本任务范围内的 http/https URL，最多 32 个"},
-		"templates": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "已安装模板包中的明确相对 YAML 文件路径，最多 16 个；不可传目录或任意命令"},
+	}), wrTool("nuclei_scan", "이 인스턴스에 설치된 Nuclei 로 현재 작업에서 권한이 부여된 URL 에 명확히 선택한 템플릿을 실행한다. 먼저 nuclei_templates 로 템플릿 경로를 조회한다. 템플릿 일치는 후보 결과일 뿐이며, 여전히 증거를 확인해야 하고 확인된 취약점으로 자동 등록하지 않는다.", objSchema(map[string]any{
+		"targets":   map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "이 작업 범위 안의 http/https URL, 최대 32 개"},
+		"templates": map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "설치된 템플릿 패키지 안의 명확한 상대 YAML 파일 경로, 최대 16 개. 디렉터리나 임의 명령을 넘길 수 없음"},
 	}, "targets", "templates"), func(ctx context.Context, raw json.RawMessage) (actool.Result, error) {
 		out, err := m.scan(ctx, raw)
 		if err != nil {
@@ -786,13 +786,13 @@ func (m *toolpackManager) scan(ctx context.Context, raw json.RawMessage) (string
 		return "", err
 	}
 	if len(in.Targets) < 1 || len(in.Targets) > 32 || len(in.Templates) < 1 || len(in.Templates) > 16 {
-		return "", errors.New("请提供 1–32 个目标和 1–16 个明确模板")
+		return "", errors.New("1–32 개의 대상과 1–16 개의 명확한 템플릿을 제공하세요")
 	}
 	m.mu.Lock()
 	state := m.state
 	if !state.Enabled || !withinToolpackRoot(m.root, state.Engine.Path) || !withinToolpackRoot(m.root, state.Templates.Path) {
 		m.mu.Unlock()
-		return "", errors.New("工具未安装、未启用或模板未就绪，请到工具页处理")
+		return "", errors.New("도구가 설치되지 않았거나 활성화되지 않았거나 템플릿이 준비되지 않았습니다. 도구 페이지에서 처리하세요")
 	}
 	m.state.Running++
 	m.mu.Unlock()
@@ -806,18 +806,18 @@ func (m *toolpackManager) scan(ctx context.Context, raw json.RawMessage) (string
 	for _, target := range in.Targets {
 		u, err := url.Parse(target)
 		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil {
-			return "", errors.New("目标必须是 http/https URL")
+			return "", errors.New("대상은 http/https URL 이어야 합니다")
 		}
 		args = append(args, "-u", target)
 	}
 	for _, name := range in.Templates {
 		p := filepath.Join(state.Templates.Path, filepath.FromSlash(name))
 		if !withinToolpackRoot(state.Templates.Path, p) || (filepath.Ext(p) != ".yaml" && filepath.Ext(p) != ".yml") {
-			return "", errors.New("模板需为安装目录内的 YAML 文件")
+			return "", errors.New("템플릿은 설치 디렉터리 안의 YAML 파일이어야 합니다")
 		}
 		info, err := os.Lstat(p)
 		if err != nil || !info.Mode().IsRegular() {
-			return "", fmt.Errorf("模板不可用: %s", name)
+			return "", fmt.Errorf("템플릿을 사용할 수 없습니다: %s", name)
 		}
 		args = append(args, "-t", p)
 	}
@@ -832,7 +832,7 @@ func (m *toolpackManager) scan(ctx context.Context, raw json.RawMessage) (string
 	err := cmd.Run()
 	out := buf.String()
 	if out == "" && err == nil {
-		out = "所选模板运行完成，未产生匹配。未匹配不代表目标不存在其他问题。"
+		out = "선택한 템플릿 실행이 완료되었고 일치가 없었습니다. 일치가 없다고 대상에 다른 문제가 없다는 뜻은 아닙니다."
 	}
 	return out, err
 }
@@ -866,7 +866,7 @@ func (b *toolpackOutput) String() string {
 	defer b.mu.Unlock()
 	s := string(b.b)
 	if b.truncated {
-		s += "\n[输出达到 2 MiB 上限，已截断]"
+		s += "\n[출력이 2 MiB 상한에 도달해 잘렸습니다]"
 	}
 	return s
 }

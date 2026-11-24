@@ -64,7 +64,7 @@ func TestSessionResumeProductionChat(t *testing.T) {
 				var before []byte
 				switch history {
 				case "corrupt_jsonl":
-					msg := llm.Message{Role: llm.RoleAssistant, Content: []llm.ContentBlock{llm.TextBlock("先前动作已完成，不要重复执行。")}}
+					msg := llm.Message{Role: llm.RoleAssistant, Content: []llm.ContentBlock{llm.TextBlock("이전 동작이 완료되었으니 반복 실행하지 않는다.")}}
 					if err := store.Append(path, transcript.Record{UUID: "prior-action", SessionID: sessionID, Type: "message", Message: &msg}); err != nil {
 						t.Fatal(err)
 					}
@@ -106,7 +106,7 @@ func TestSessionResumeProductionChat(t *testing.T) {
 				chat := NewChatAgent(provider, "resume-fixture", root, store, 128000)
 				chat.SetNonStreaming(func() bool { return mode == "non_streaming" })
 				activities := 0
-				answer, err := chat.Chat(t.Context(), "personal", sessionID, "继续先前任务", 3, 10*time.Second, false, func(db.Activity) { activities++ })
+				answer, err := chat.Chat(t.Context(), "personal", sessionID, "이전 작업 계속", 3, 10*time.Second, false, func(db.Activity) { activities++ })
 				if history == "new_session" {
 					if err != nil || answer != "resume fixture complete" || provider.calls.Load() != 2 || toolCalls.Load() != 1 {
 						t.Fatalf("fresh session answer=%q model=%d tool=%d err=%v", answer, provider.calls.Load(), toolCalls.Load(), err)

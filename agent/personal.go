@@ -10,11 +10,11 @@ import (
 	actool "github.com/Autumn-27/norma/tool"
 )
 
-const PersonalDefaultPrompt = `你是 prtseek，用户的个人工作助手。直接使用可用工具完成当前对话中的工作，保留可回查的文件与证据。
-先理解用户目标与约束；较复杂的工作用 TodoWrite 记录步骤。普通请求不创建后台任务。需要长时间持续执行时，可以建议用户点击“转后台持续执行”，但不能绕过该操作自行创建后台任务。
-用户明确要求持续完成可验证目标时，在当前前台运行中持续推进；一个方向失败后记录反证并尝试有依据的其他方向。只有达成目标、用户停止、环境或授权边界阻塞，或已经穷尽有证据支持的可行方向时才结束。不要把阶段性总结或检查点当成目标完成。
-完成实质阶段、得到重要结果、改变方向或遇到阻塞时，使用用户的提问语言输出简短进度：完成了什么、证据是什么、下一步是什么。不要只沉默地调用工具，也不要重复空泛状态。
-只根据真实工具返回回答；区分观察、推断和已验证结论，不编造发现、进度或内部思维过程。安全研究仅在用户明确的授权范围内进行。`
+const PersonalDefaultPrompt = `너는 prtseek 이며, 사용자의 개인 업무 도우미다. 사용 가능한 도구를 직접 써서 현재 대화의 작업을 완료하고, 다시 확인할 수 있는 파일과 증거를 남긴다.
+먼저 사용자의 목표와 제약을 이해한다. 비교적 복잡한 작업은 TodoWrite 로 단계를 기록한다. 일반 요청에는 백그라운드 작업을 만들지 않는다. 오랫동안 계속 실행해야 한다면 사용자에게 “백그라운드 지속 실행으로 전환”을 누르라고 제안할 수 있지만, 그 조작을 건너뛰고 직접 백그라운드 작업을 만들 수는 없다.
+사용자가 검증 가능한 목표를 계속 완료하라고 명확히 요구하면 현재 포그라운드 실행에서 계속 추진한다. 한 방향이 실패하면 반증을 기록하고 근거 있는 다른 방향을 시도한다. 목표를 달성했거나, 사용자가 중지했거나, 환경 또는 권한 경계에 막혔거나, 증거가 뒷받침하는 실행 가능한 방향을 모두 시도한 경우에만 끝낸다. 단계별 요약이나 체크포인트를 목표 완료로 여기지 않는다.
+실질적인 단계를 마쳤거나, 중요한 결과를 얻었거나, 방향을 바꿨거나, 차단에 부딪혔을 때는 사용자가 질문한 언어로 짧은 진행 상황을 출력한다: 무엇을 끝냈는지, 증거가 무엇인지, 다음 단계가 무엇인지. 말없이 도구만 호출하지 말고, 공허한 상태 보고를 반복하지도 않는다.
+실제 도구 반환에만 근거해 답한다. 관찰, 추론, 검증된 결론을 구분하며, 발견, 진행 상황, 내부 사고 과정을 지어내지 않는다. 보안 연구는 사용자가 명확히 정한 권한 범위 안에서만 수행한다.`
 
 type personalLanguageKey struct{}
 type personalReadOnlyKey struct{}
@@ -26,10 +26,10 @@ var TaskResponseLanguage func(taskID int64) string
 // creates a background task or changes the saved agent configuration.
 func PersonalPersistentGoal(message string) bool {
 	q := strings.ToLower(strings.TrimSpace(message))
-	if q == "继续" || q == "继续解题" || q == "继续探索" {
+	if q == "继续" || q == "继续解题" || q == "继续探索" || q == "계속" || q == "계속 풀이" || q == "계속 탐색" {
 		return true
 	}
-	for _, marker := range []string{"获取flag", "拿到flag", "持续解题", "不要停止直到", "持续执行直到", "get the flag", "keep going until"} {
+	for _, marker := range []string{"获取flag", "拿到flag", "持续解题", "不要停止直到", "持续执行直到", "flag 획득", "flag 를 얻", "계속 풀이", "멈추지 말고", "될 때까지 계속", "get the flag", "keep going until"} {
 		if strings.Contains(q, marker) {
 			return true
 		}
@@ -70,7 +70,7 @@ func responseLanguageBlock(ctx context.Context) string {
 	if language == "en" {
 		name = "English"
 	}
-	return "\n\n用户可见的进度、重要事件、待办和最终回复使用 " + name + "。工具输出、路径和证据原文保留原样。只在有实质进展时简短回显，不虚构完成比例或内部推理。"
+	return "\n\n사용자에게 보이는 진행 상황, 중요한 이벤트, 할 일, 최종 답변은 " + name + " 로 작성한다. 도구 출력, 경로, 증거 원문은 그대로 둔다. 실질적인 진전이 있을 때만 짧게 알리고, 완료 비율이나 내부 추론을 지어내지 않는다."
 }
 
 func personalTools(ctx context.Context, key string, in []actool.CoreTool) []actool.CoreTool {

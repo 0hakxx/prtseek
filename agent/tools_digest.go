@@ -82,8 +82,8 @@ func coldDigestsRecent(store *db.ExplorationStore, cap int) (shown []map[string]
 
 // hiddenMembersFor returns a predicate telling whether a member is hidden (folded
 // into an active digest AND still cold) in the given store — so a source task's
-// overview folds exactly the way that task folds itself (§2 cross-task: "当前任务
-// 什么展示逻辑，关联任务就什么逻辑"). A revived (now hot) covered member is NOT
+// overview folds exactly the way that task folds itself (§2 cross-task: "현재 작업에
+// 어떤 표시 로직이면 연결된 작업도 같은 로직"). A revived (now hot) covered member is NOT
 // hidden (§6 render-time revival check). Returns a never-hidden predicate when the
 // store has no digests.
 func hiddenMembersFor(store *db.ExplorationStore) func(int64) bool {
@@ -119,11 +119,11 @@ func (t *ToolSet) resolveDigest(id int64) (*db.Node, *db.ExplorationStore, int64
 // node's full detail.
 func (t *ToolSet) expandDigest() actool.CoreTool {
 	return t.writeExpTool("expand_digest",
-		"展开一个 cold digest：返回它折叠的成员紧凑列表（id/summary/state/confidence），与概览 recent_facts/recent_done_intents 同形状。要某条完整细节/证据用 node_detail(member_id)。",
+		"cold digest 하나를 펼친다: 그것이 접어 둔 구성원의 간결한 목록(id/summary/state/confidence)을 반환하며, 개요의 recent_facts/recent_done_intents 와 형태가 같다. 특정 항목의 전체 세부 사항/증거는 node_detail(member_id) 로 본다.",
 		map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"id": map[string]any{"type": "integer", "description": "digest 节点 id（来自概览 cold_digests）"},
+				"id": map[string]any{"type": "integer", "description": "digest 노드 id(개요의 cold_digests 에서 얻음)"},
 			},
 			"required": []any{"id"},
 		},
@@ -134,7 +134,7 @@ func (t *ToolSet) expandDigest() actool.CoreTool {
 			_ = json.Unmarshal(raw, &in)
 			n, store, srcTaskID := t.resolveDigest(in.ID)
 			if n == nil {
-				return jsonResult(map[string]any{"error": fmt.Sprintf("#%d 不是 digest 节点（本任务或直接关联任务里都没找到）", in.ID)})
+				return jsonResult(map[string]any{"error": fmt.Sprintf("#%d 는 digest 노드가 아닙니다(이 작업과 직접 연결된 작업 어디에서도 찾지 못함)", in.ID)})
 			}
 			var p struct {
 				Body string `json:"body"`
@@ -144,7 +144,7 @@ func (t *ToolSet) expandDigest() actool.CoreTool {
 			list := make([]map[string]any, 0, len(members))
 			for _, m := range members {
 				entry := t.digestMemberEntry(store, m)
-				if srcTaskID > 0 { // 关联任务的成员：只读，带继承标记（§2）
+				if srcTaskID > 0 { // 연결된 작업의 구성원: 읽기 전용이며 상속 표시를 붙임(§2)
 					entry["inherited"] = true
 					entry["source_task_id"] = srcTaskID
 				}

@@ -46,7 +46,7 @@ function request(base, route, body, token) {
     const password = crypto.randomBytes(20).toString('hex');
     const initialized = await request(base, '/api/auth/init', { password });
     const loggedIn = initialized.token ? initialized : await request(base, '/api/auth/login', {username:'prtseek', password});
-    await request(base, '/api/conversations', {agent_key:'triage', title:'界面回归验证', mode:'ctf'}, loggedIn.token);
+    await request(base, '/api/conversations', {agent_key:'triage', title:'UI 회귀 검증', mode:'ctf'}, loggedIn.token);
     browser = await chromium.launch({...(process.env.PRTSEEK_BROWSER_CHANNEL ? {channel:process.env.PRTSEEK_BROWSER_CHANNEL} : {}), headless:true});
     const context = await browser.newContext({viewport:{width:1440,height:960}, reducedMotion:'no-preference', colorScheme:'light'});
     await context.addInitScript(() => {
@@ -88,7 +88,7 @@ function request(base, route, body, token) {
       await page.locator('.conversation-sidebar').waitFor();
     }
     await login('first login boot');
-    await page.getByRole('button',{name:/^界面回归验证 triage/}).click();
+    await page.getByRole('button',{name:/^UI 회귀 검증 triage/}).click();
     await page.locator('textarea').waitFor();
     await page.evaluate(() => {document.documentElement.classList.remove('dark');document.documentElement.dataset.themeMode='light';});
     async function colors(label) {
@@ -119,19 +119,19 @@ function request(base, route, body, token) {
     await page.getByTestId('build-update-notice').waitFor();
     assert.equal(await page.locator('textarea').inputValue(), 'unsent upgrade regression draft');
     await page.unroute('**/api/health');
-    await page.getByRole('button',{name:'刷新加载新版'}).click();
+    await page.getByRole('button',{name:'새로 고쳐 새 버전 불러오기'}).click();
     await page.waitForLoadState('domcontentloaded');
     await page.locator('.prts-boot').waitFor({state:'detached',timeout:5000});
     assert.equal(await page.getByTestId('build-update-notice').count(),0);
     report.checks.push({name:'server update notice preserves draft and refresh loads current build',passed:true});
     await page.locator('[data-sidebar="footer"] button').click();
-    await Promise.all([page.waitForURL(/\/login\/?$/,{waitUntil:'domcontentloaded'}),page.getByRole('menuitem',{name:'退出登录'}).click()]);
+    await Promise.all([page.waitForURL(/\/login\/?$/,{waitUntil:'domcontentloaded'}),page.getByRole('menuitem',{name:'로그아웃'}).click()]);
     await bootEnds('logout boot');
     await login('second login boot');
     await page.evaluate(() => {window.__navigationProof='same-document';});
     await page.locator('a[href^="/settings"]').click();
     await page.waitForURL(url=>url.pathname.replace(/\/$/,'')==='/settings');
-    await page.getByRole('link',{name:'对话与会话',exact:true}).click();
+    await page.getByRole('link',{name:'대화 및 세션',exact:true}).click();
     await page.waitForURL(url=>url.pathname.replace(/\/$/,'')==='/chat');
     await page.locator('textarea').waitFor();
     assert.equal(await page.evaluate(()=>window.__navigationProof),'same-document');
@@ -147,7 +147,7 @@ function request(base, route, body, token) {
     await colors('chat-light-mobile-navigation');
     await page.keyboard.press('Escape');
     await page.locator('[data-slot="sidebar"][data-mobile="true"]').waitFor({state:'detached'});
-    await page.getByRole('button',{name:'会话管理',exact:true}).click();
+    await page.getByRole('button',{name:'세션 관리',exact:true}).click();
     await page.locator('.conversation-sidebar').waitFor();
     await page.screenshot({path:path.join(artifacts,'chat-mobile-history.png'),fullPage:true});
     report.checks.push({name:'mobile history toggle',passed:true});
@@ -155,7 +155,7 @@ function request(base, route, body, token) {
     await page.keyboard.press('Escape'); await page.locator('.prts-boot').waitFor({state:'detached',timeout:1000});
     report.checks.push({name:'Escape dismissal',passed:true});
     await page.reload({waitUntil:'domcontentloaded'}); await boot.waitFor();
-    await page.getByRole('button',{name:'跳过 / SKIP'}).click(); await page.locator('.prts-boot').waitFor({state:'detached',timeout:1000});
+    await page.getByRole('button',{name:'건너뛰기 / SKIP'}).click(); await page.locator('.prts-boot').waitFor({state:'detached',timeout:1000});
     report.checks.push({name:'skip dismissal',passed:true});
     await page.emulateMedia({reducedMotion:'reduce'});
     await page.reload({waitUntil:'domcontentloaded'}); await boot.waitFor();

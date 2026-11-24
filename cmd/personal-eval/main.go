@@ -234,7 +234,7 @@ func runCase(parent context.Context, c evalCase, variant string, repeat int, o o
 	defer cancel()
 	ctx = agent.WithResearchOptimization(ctx, variant == "optimized")
 	meter := &observedProvider{base: prov, models: map[string]bool{}, callLimit: o.Turns}
-	opts := agentcore.Options{Provider: meter, SystemPrompt: []string{"你在隔离的本地评测夹具中完成任务。所有数据都是合成数据。仅使用给定工具读取证据、查询模拟状态并保存答案；没有外部网络或shell工具。读取工具返回内容后按任务要求调用 save_answer，正文不能代替保存答案。保留证据ID；不要编造文件、结果或已执行操作。"}, Tools: state.tools(), PermissionMode: permission.ModeBypass, WorkingDir: work, MaxTurns: o.Turns, MaxDuration: o.Timeout, MaxTokens: o.MaxOutput, MaxConcurrency: 1, DisableBackgroundTasks: true, NonStreaming: o.NonStreaming}
+	opts := agentcore.Options{Provider: meter, SystemPrompt: []string{"너는 격리된 로컬 평가 픽스처에서 작업을 완료한다. 모든 데이터는 합성 데이터다. 주어진 도구로만 증거를 읽고, 모의 상태를 조회하고, 답을 저장한다. 외부 네트워크나 shell 도구는 없다. 도구 반환 내용을 읽은 뒤 작업 요구에 따라 save_answer 를 호출하며, 본문으로 답 저장을 대신할 수 없다. 증거 ID 를 유지하고, 파일, 결과, 실행한 작업을 지어내지 않는다."}, Tools: state.tools(), PermissionMode: permission.ModeBypass, WorkingDir: work, MaxTurns: o.Turns, MaxDuration: o.Timeout, MaxTokens: o.MaxOutput, MaxConcurrency: 1, DisableBackgroundTasks: true, NonStreaming: o.NonStreaming}
 	if err := agent.AttachResearchRuntime(ctx, &opts, model, work, c.Task); err != nil {
 		return r, err
 	}

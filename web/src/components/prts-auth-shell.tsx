@@ -20,7 +20,7 @@ export function PrtsAuthShell({ children, mode = "ACCESS" }: { children: ReactNo
             <i>ANALYSIS OS</i>
           </div>
           <div className="prts-auth-caption">
-            <span>观察。推演。验证。</span>
+            <span>관찰. 추론. 검증.</span>
             <p>OBSERVE / REASON / VERIFY</p>
           </div>
           <div className="prts-auth-bottom">

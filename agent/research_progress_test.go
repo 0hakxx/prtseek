@@ -21,7 +21,7 @@ func TestResearchProgressCrossParameterHTTPAndPolling(t *testing.T) {
 		out, _ := json.Marshal(httpObservation{Status: 200, SHA256: "same-body", BodyBytes: 0, ElapsedMS: int64(i + 1), Artifact: "changing-file", OriginalURL: "http://localhost/?v=" + string(rune('a'+i))})
 		_, note = r.observe(t.Context(), "WebFetch", []byte(`{"v":`+string(rune('0'+i))+`}`), string(out), false)
 	}
-	if !strings.Contains(note, "跨参数") {
+	if !strings.Contains(note, "파라미터를 바꿔도") {
 		t.Fatalf("missed stagnation: %s", note)
 	}
 	state, err := memory.Snapshot()
@@ -30,7 +30,7 @@ func TestResearchProgressCrossParameterHTTPAndPolling(t *testing.T) {
 	}
 	for i := 0; i < 10; i++ {
 		_, note = r.observe(t.Context(), "wait_agents", []byte(`{}`), "pending", false)
-		if strings.Contains(note, "阶段复核") {
+		if strings.Contains(note, "단계 재검토") {
 			t.Fatal("polling counted as stagnation")
 		}
 	}
@@ -46,7 +46,7 @@ func TestResearchProgressNovelResultsPeriodicCheckpoint(t *testing.T) {
 	r := &researchRuntime{memory: memory, attempts: map[string]*researchAttempt{}, researchTask: true}
 	for i := 0; i < 8; i++ {
 		_, note := r.observe(t.Context(), "Bash", []byte(`{}`), string(rune('a'+i)), false)
-		if strings.Contains(note, "跨参数") {
+		if strings.Contains(note, "파라미터를 바꿔도") {
 			t.Fatal("novel results misclassified")
 		}
 	}

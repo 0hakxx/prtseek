@@ -42,7 +42,7 @@ func captureRunSession(ctx context.Context, s *agentcore.Session, input string, 
 	return captureEvents(ctx, s.Prompt(ctx, input), emit, auditTrace)
 }
 
-var ErrIncompleteRun = errors.New("执行流缺少有效终止事件，已保留收到的内容与用量")
+var ErrIncompleteRun = errors.New("실행 스트림에 유효한 종료 이벤트가 없습니다. 수신한 내용과 사용량은 보존했습니다")
 
 func captureEvents(ctx context.Context, events iter.Seq2[harness.Event, error], emit func(db.Activity), auditTrace *intercept.Trace) (string, harness.TerminalReason, error) {
 	var reason harness.TerminalReason
@@ -99,7 +99,7 @@ func captureEvents(ctx context.Context, events iter.Seq2[harness.Event, error], 
 			if errors.Is(err, ErrIncompleteRun) {
 				reason = "incomplete_stream"
 			}
-			rec(activityWithUsage(db.Activity{Kind: "result", IsError: true, Summary: "执行出错: " + err.Error(), Detail: err.Error()}, lastUsage))
+			rec(activityWithUsage(db.Activity{Kind: "result", IsError: true, Summary: "실행 오류: " + err.Error(), Detail: err.Error()}, lastUsage))
 			return finalText, reason, err
 		}
 		switch ev.Kind {

@@ -26,7 +26,7 @@ export default function LoginPage() {
   const [readToEnd, setReadToEnd] = useState(false);
   const termsBodyRef = useRef<HTMLDivElement>(null);
 
-  // 滚动到条款底部（含无需滚动即可完整展示的情况）方可点击「同意」。
+  // 약관 끝까지 스크롤해야(스크롤 없이도 전체가 보이는 경우 포함) 「동의」를 누를 수 있다.
   function handleTermsScroll() {
     const el = termsBodyRef.current;
     if (!el) return;
@@ -35,18 +35,18 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!termsOpen) return;
-    // 打开时重置，并处理内容本就不足一屏、无法触发滚动的场景。
+    // 열 때 초기화하고, 내용이 한 화면도 안 되어 스크롤을 트리거할 수 없는 경우를 처리한다.
     setReadToEnd(false);
     const el = termsBodyRef.current;
     if (el && el.scrollHeight <= el.clientHeight + 8) setReadToEnd(true);
   }, [termsOpen]);
 
   useEffect(() => {
-    // 已登录直接进主界面（静态导出下无 middleware 代劳这层跳转）。
+    // 이미 로그인했으면 메인 화면으로 바로 들어간다(정적 내보내기에서는 middleware 가 이 이동을 대신하지 않음).
     const token = auth.getToken();
     if (token) {
-      // localStorage 可能仍有凭据但 cookie 已丢失。先同步，再发起全新请求，
-      // 避免服务端守卫或路由缓存把跳转送回仍处于 checking 状态的登录页。
+      // localStorage 에 자격 증명이 여전히 있지만 cookie 가 사라졌을 수 있다. 먼저 동기화한 뒤 완전히 새 요청을 보내,
+      // 서버 가드나 라우트 캐시가 아직 checking 상태인 로그인 페이지로 이동을 되돌리는 것을 피한다.
       auth.setToken(token);
       window.location.replace("/chat");
       return;
@@ -56,14 +56,14 @@ export default function LoginPage() {
       .then(({ initialized }) => {
         if (!initialized) router.replace("/setup");
       })
-      .catch(() => setError("无法连接到后端服务"))
+      .catch(() => setError("백엔드 서비스에 연결할 수 없습니다"))
       .finally(() => setChecking(false));
   }, [router]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!agreed) {
-      setError("请先阅读并同意《使用须知》");
+      setError("먼저 《사용 안내》를 읽고 동의하세요");
       return;
     }
     setLoading(true);
@@ -73,7 +73,7 @@ export default function LoginPage() {
       auth.setToken(token);
       window.location.replace("/chat");
     } catch {
-      setError("用户名或密码错误");
+      setError("사용자 이름 또는 비밀번호가 틀렸습니다");
     } finally {
       setLoading(false);
     }
@@ -82,7 +82,7 @@ export default function LoginPage() {
   if (checking) {
     return (
       <div role="status" className="flex min-h-dvh items-center justify-center text-muted-foreground">
-        正在检查登录状态…
+        로그인 상태를 확인하는 중…
       </div>
     );
   }
@@ -91,22 +91,22 @@ export default function LoginPage() {
     <>
       <PrtsAuthShell>
         <div className="space-y-3">
-          <h2 className="text-2xl font-medium tracking-tight">终端访问</h2>
-          <p className="text-sm leading-relaxed text-muted-foreground">请输入访问密码，继续你的研究。</p>
+          <h2 className="text-2xl font-medium tracking-tight">터미널 접근</h2>
+          <p className="text-sm leading-relaxed text-muted-foreground">접근 비밀번호를 입력해 연구를 계속하세요.</p>
         </div>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="space-y-1.5">
-            <Label htmlFor="username">用户名</Label>
+            <Label htmlFor="username">사용자 이름</Label>
             <Input id="username" value="prtseek" readOnly className="bg-muted text-muted-foreground" />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="password">密码</Label>
+            <Label htmlFor="password">비밀번호</Label>
             <Input
               id="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="请输入密码"
+              placeholder="비밀번호를 입력하세요"
               autoFocus
               autoComplete="current-password"
             />
@@ -119,19 +119,19 @@ export default function LoginPage() {
               className="mt-0.5"
             />
             <Label htmlFor="agree-terms" className="text-sm font-normal leading-relaxed text-muted-foreground">
-              我已阅读并同意
+              읽고 동의했습니다
               <button
                 type="button"
                 onClick={() => setTermsOpen(true)}
                 className="mx-0.5 font-medium text-primary underline-offset-4 hover:underline"
               >
-                《使用须知》
+                《사용 안내》
               </button>
             </Label>
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
           <Button type="submit" className="w-full" disabled={loading || !password || !agreed}>
-            {loading ? "登录中..." : "登录"}
+            {loading ? "로그인 중..." : "로그인"}
           </Button>
         </form>
       </PrtsAuthShell>
@@ -143,9 +143,9 @@ export default function LoginPage() {
               <ShieldCheck className="size-5" />
             </div>
             <div className="space-y-0.5">
-              <DialogTitle className="text-base">prtseek 使用须知与免责声明</DialogTitle>
+              <DialogTitle className="text-base">prtseek 사용 안내 및 면책 조항</DialogTitle>
               <p className="text-xs text-muted-foreground">
-                版本 v1.0 · 生效日期 2026-09-18 · 请在登录前完整阅读以下全部条款
+                버전 v1.0 · 시행일 2026-09-18 · 로그인 전에 아래 모든 조항을 완전히 읽으세요
               </p>
             </div>
           </DialogHeader>
@@ -156,11 +156,11 @@ export default function LoginPage() {
             className="max-h-[60vh] space-y-5 overflow-y-auto px-6 py-5 text-sm leading-relaxed text-muted-foreground"
           >
             <p className="rounded-lg border bg-muted/40 p-3 text-foreground/80">
-              本《使用须知与免责声明》（以下简称"本声明"）是您与 prtseek
-              项目作者及贡献者之间就使用本软件所达成的约定。请您在使用前审慎阅读、充分理解各条款内容，特别是以粗体或色块标注的免责、责任限制及禁止性条款。
+              이 《사용 안내 및 면책 조항》(이하 "본 성명")은 귀하와 prtseek
+              프로젝트 작성자 및 기여자 사이에 본 소프트웨어 사용에 관해 맺는 약정입니다. 사용하기 전에 각 조항의 내용을, 특히 굵은 글씨나 색 블록으로 표시된 면책, 책임 제한, 금지 조항을 신중히 읽고 충분히 이해하시기 바랍니다.
               <span className="font-medium text-foreground">
                 {" "}
-                一旦您下载、安装、访问或以任何方式使用本软件，即视为您已阅读、理解并同意接受本声明的全部约束。
+                귀하가 본 소프트웨어를 다운로드, 설치, 접근하거나 어떤 방식으로든 사용하면, 본 성명의 모든 구속을 읽고 이해하고 받아들이는 데 동의한 것으로 봅니다.
               </span>
             </p>
 
@@ -169,12 +169,12 @@ export default function LoginPage() {
                 <span className="flex size-5 items-center justify-center rounded-md bg-muted text-xs font-semibold text-muted-foreground">
                   1
                 </span>
-                第一条 · 定义与开源许可
+                제1조 · 정의와 오픈 소스 라이선스
               </h4>
               <p className="pl-7">
-                本软件（prtseek）是一款基于 GNU Affero General Public License
-                v3.0（AGPL-3.0）发布的开源程序。您可依据该协议自由使用、复制、修改和分发本软件；但任何衍生作品（包括通过网络向第三方提供的在线服务）均须同样以
-                AGPL-3.0 协议开源并向使用者公开对应的完整源代码。AGPL-3.0 完整条款以随附的 LICENSE 文件为准。
+                본 소프트웨어(prtseek)는 GNU Affero General Public License
+                v3.0(AGPL-3.0)으로 배포되는 오픈 소스 프로그램입니다. 귀하는 그 라이선스에 따라 본 소프트웨어를 자유롭게 사용, 복제, 수정, 배포할 수 있습니다. 다만 모든 파생 저작물(네트워크를 통해 제3자에게 제공하는 온라인 서비스 포함)도 똑같이
+                AGPL-3.0 라이선스로 공개하고 사용자에게 해당하는 완전한 소스 코드를 공개해야 합니다. AGPL-3.0 의 전체 조항은 함께 제공되는 LICENSE 파일을 기준으로 합니다.
               </p>
             </section>
 
@@ -183,10 +183,10 @@ export default function LoginPage() {
                 <span className="flex size-5 items-center justify-center rounded-md bg-muted text-xs font-semibold text-muted-foreground">
                   2
                 </span>
-                第二条 · 授权使用范围
+                제2조 · 사용 허가 범위
               </h4>
               <p className="pl-7">
-                本软件仅供个人学习、代码研究、安全技术原理探讨，以及在您自行搭建的本地隔离环境中进行技术验证之用，适用于学习、学术研究、代码审阅等非攻击性、非破坏性用途。除本条明确许可的情形外，您不得将本软件用于任何其他目的。
+                본 소프트웨어는 개인 학습, 코드 연구, 보안 기술 원리 탐구, 그리고 귀하가 직접 구축한 로컬 격리 환경에서의 기술 검증 용도로만 제공되며, 학습, 학술 연구, 코드 리뷰 등 비공격적·비파괴적 용도에 적합합니다. 본 조에서 명확히 허가한 경우를 제외하고, 귀하는 본 소프트웨어를 다른 어떤 목적으로도 사용할 수 없습니다.
               </p>
             </section>
 
@@ -196,16 +196,16 @@ export default function LoginPage() {
                   3
                 </span>
                 <AlertTriangle className="size-4" />
-                第三条 · 禁止行为
+                제3조 · 금지 행위
               </h4>
               <ul className="ml-7 list-decimal space-y-1.5 rounded-lg border border-destructive/20 bg-destructive/5 p-3 pl-8 text-foreground/80 marker:text-destructive/70">
                 <li>
-                  严禁对任何网站、线上服务、他人或第三方所有的联网系统发起扫描、探测、利用或攻击（无论是否已获得授权、是否为您自有资产）；
+                  어떤 웹사이트, 온라인 서비스, 타인이나 제3자가 소유한 네트워크 연결 시스템에 대해서도 스캔, 탐지, 익스플로잇, 공격을 하는 것을 엄격히 금지합니다(권한을 얻었는지, 귀하의 자산인지와 무관);
                 </li>
-                <li>严禁将本软件用于任何实际的渗透测试、攻防对抗、红蓝演练或生产环境；</li>
-                <li>严禁将本软件用于非法入侵、数据窃取、勒索、拒绝服务（DoS/DDoS）或任何破坏性、犯罪性活动；</li>
-                <li>严禁移除、篡改或规避本软件及其输出中的任何版权、许可或安全提示信息；</li>
-                <li>严禁从事任何违反您所在国家或地区法律、法规及监管规定的行为。</li>
+                <li>본 소프트웨어를 실제 침투 테스트, 공방 대결, 레드/블루 훈련, 운영 환경에 사용하는 것을 엄격히 금지합니다;</li>
+                <li>본 소프트웨어를 불법 침입, 데이터 절취, 갈취, 서비스 거부(DoS/DDoS) 또는 어떤 파괴적·범죄적 활동에 사용하는 것을 엄격히 금지합니다;</li>
+                <li>본 소프트웨어 및 그 출력에 포함된 어떤 저작권, 라이선스, 보안 안내 정보도 제거, 변조, 우회하는 것을 엄격히 금지합니다;</li>
+                <li>귀하가 속한 국가나 지역의 법률, 법규, 규제 규정을 위반하는 어떤 행위도 엄격히 금지합니다.</li>
               </ul>
             </section>
 
@@ -214,11 +214,11 @@ export default function LoginPage() {
                 <span className="flex size-5 items-center justify-center rounded-md bg-muted text-xs font-semibold text-muted-foreground">
                   4
                 </span>
-                第四条 · 知识产权
+                제4조 · 지식 재산권
               </h4>
               <p className="pl-7">
-                本软件的著作权及相关知识产权归项目作者及贡献者所有，并在 AGPL-3.0
-                协议约定的范围内向您授予相应权利。除该协议明确授予的权利外，本声明未以明示或默示方式授予您任何其他权利。
+                본 소프트웨어의 저작권 및 관련 지식 재산권은 프로젝트 작성자와 기여자에게 있으며, AGPL-3.0
+                라이선스가 정한 범위에서 귀하에게 해당 권리를 부여합니다. 그 라이선스가 명시적으로 부여한 권리를 제외하고, 본 성명은 명시적이든 묵시적이든 귀하에게 다른 어떤 권리도 부여하지 않습니다.
               </p>
             </section>
 
@@ -227,10 +227,10 @@ export default function LoginPage() {
                 <span className="flex size-5 items-center justify-center rounded-md bg-muted text-xs font-semibold text-muted-foreground">
                   5
                 </span>
-                第五条 · 数据与隐私
+                제5조 · 데이터와 개인정보
               </h4>
               <p className="pl-7">
-                本软件为可自行部署的开源程序，作者不运营任何集中式服务、亦不会收集或上传您的使用数据。您在使用过程中产生、处理或接触的一切数据，均由您自行掌控并负责其合法性与安全性；因数据处理不当引发的任何后果由您自行承担。
+                본 소프트웨어는 직접 배포할 수 있는 오픈 소스 프로그램이며, 작성자는 어떤 중앙 집중식 서비스도 운영하지 않고 귀하의 사용 데이터를 수집하거나 업로드하지도 않습니다. 사용 과정에서 귀하가 생성, 처리, 접촉하는 모든 데이터는 귀하가 직접 관리하고 그 적법성과 안전에 책임을 집니다. 데이터 처리가 부적절해 발생하는 어떤 결과도 귀하가 직접 부담합니다.
               </p>
             </section>
 
@@ -239,13 +239,13 @@ export default function LoginPage() {
                 <span className="flex size-5 items-center justify-center rounded-md bg-muted text-xs font-semibold text-muted-foreground">
                   6
                 </span>
-                第六条 · 合规与法律责任
+                제6조 · 준법과 법적 책임
               </h4>
               <p className="pl-7">
-                您应自行遵守所在国家或地区关于网络安全、数据安全与个人信息保护、计算机犯罪等方面的全部法律法规（在中国大陆包括但不限于《网络安全法》《数据安全法》《个人信息保护法》及相关司法解释）。
+                귀하는 속한 국가나 지역의 네트워크 보안, 데이터 보안과 개인정보 보호, 컴퓨터 범죄 등에 관한 모든 법률 법규를 스스로 준수해야 합니다(중국 본토에서는 《네트워크 안전법》《데이터 안전법》《개인정보 보호법》 및 관련 사법 해석을 포함하되 이에 국한되지 않음).
                 <span className="font-medium text-foreground">
                   {" "}
-                  因您违反上述法律法规或本声明约定而产生的一切法律责任与后果，均由您本人独立承担，与本软件作者及贡献者无关。
+                  귀하가 위 법률 법규나 본 성명의 약정을 위반해 발생하는 모든 법적 책임과 결과는 귀하 본인이 단독으로 부담하며, 본 소프트웨어 작성자 및 기여자와는 무관합니다.
                 </span>
               </p>
             </section>
@@ -255,11 +255,11 @@ export default function LoginPage() {
                 <span className="flex size-5 items-center justify-center rounded-md bg-muted text-xs font-semibold text-muted-foreground">
                   7
                 </span>
-                第七条 · 免责声明与责任限制
+                제7조 · 면책 조항과 책임 제한
               </h4>
               <p className="pl-7">
-                本软件按"现状（AS IS）"与"现有（AS
-                AVAILABLE）"状态提供，不附带任何明示或默示的担保，包括但不限于对适销性、特定用途适用性、准确性及不侵权的担保。在适用法律允许的最大范围内，本软件作者及贡献者不对因使用或无法使用本软件（无论使用方式是否得当）而导致的任何直接、间接、偶然、特殊或后果性损失承担责任，包括但不限于数据丢失、系统损坏、业务中断、利润损失或法律纠纷。
+                본 소프트웨어는 "있는 그대로(AS IS)" 및 "이용 가능한 상태(AS
+                AVAILABLE)"로 제공되며, 상품성, 특정 목적 적합성, 정확성, 비침해에 대한 보증을 포함하되 이에 국한되지 않는 어떤 명시적·묵시적 보증도 수반하지 않습니다. 적용 법률이 허용하는 최대 범위에서, 본 소프트웨어 작성자 및 기여자는 본 소프트웨어의 사용 또는 사용 불가(사용 방식의 적절성과 무관)로 발생한 직접적, 간접적, 우발적, 특별, 결과적 손해(데이터 손실, 시스템 손상, 업무 중단, 이익 손실, 법적 분쟁을 포함하되 이에 국한되지 않음)에 대해 어떤 책임도 지지 않습니다.
               </p>
             </section>
 
@@ -268,17 +268,17 @@ export default function LoginPage() {
                 <span className="flex size-5 items-center justify-center rounded-md bg-muted text-xs font-semibold text-muted-foreground">
                   8
                 </span>
-                第八条 · 条款变更与最终解释
+                제8조 · 조항 변경과 최종 해석
               </h4>
               <p className="pl-7">
-                作者有权根据法律法规或项目发展需要不时更新本声明，更新后的版本将随项目发布并自公布之日起生效；您继续使用本软件即视为接受修订后的条款。在法律允许的范围内，本声明的最终解释权归项目作者所有。若本声明任一条款被认定为无效，不影响其余条款的效力。
+                작성자는 법률 법규나 프로젝트 발전의 필요에 따라 수시로 본 성명을 갱신할 권리가 있으며, 갱신된 버전은 프로젝트와 함께 공개되어 공개일부터 효력이 생깁니다. 귀하가 본 소프트웨어를 계속 사용하면 개정된 조항을 받아들인 것으로 봅니다. 법률이 허용하는 범위에서 본 성명의 최종 해석권은 프로젝트 작성자에게 있습니다. 본 성명의 어떤 조항이 무효로 판정되어도 나머지 조항의 효력에는 영향을 주지 않습니다.
               </p>
             </section>
           </div>
 
           <DialogFooter className="mx-0 mb-0 flex-col items-stretch gap-2 rounded-b-xl px-6 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs text-muted-foreground">
-              {readToEnd ? "您已浏览全部条款" : "请将条款滚动至底部后再确认"}
+              {readToEnd ? "모든 조항을 확인했습니다" : "조항을 끝까지 스크롤한 뒤 확인하세요"}
             </p>
             <DialogClose asChild>
               <Button
@@ -289,7 +289,7 @@ export default function LoginPage() {
                   setError("");
                 }}
               >
-                我已阅读并同意全部条款
+                모든 조항을 읽고 동의했습니다
               </Button>
             </DialogClose>
           </DialogFooter>

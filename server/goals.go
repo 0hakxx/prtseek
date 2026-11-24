@@ -19,13 +19,13 @@ type goalSpec struct {
 }
 
 // launchTask runs the shared post-creation sequence for a task created via ANY
-// path (HTTP createTask 或 orchestration spawn_task),避免两处复制粘贴:
-//  1. seed 根资产,喂给事件驱动 loop;
-//  2. 可选种子意图,worker 免等首轮 planner 直接开跑;
-//  3. 后台异步做目标分解(发「第 0 轮目标拆解」round + LLM 分解步骤 + 逐条 goal,页面可见),
-//     分解完再 engine.Run —— 引擎在 goal 节点就绪后才启动,避免 planner 抢在 goal 之前跑的竞态。
+// path (HTTP createTask 또는 orchestration spawn_task), 두 곳에 복사해 붙이는 것을 피하기 위함:
+//  1. 루트 자산을 seed 하고 이벤트 구동 loop 에 넣음.
+//  2. 선택적 시드 의도. worker 가 첫 planner 를 기다리지 않고 바로 실행.
+//  3. 백그라운드에서 비동기로 목표 분해(「0 번째 목표 분해」round + LLM 분해 단계 + 목표 하나씩 발행, 페이지에 보임),
+//     분해가 끝난 뒤 engine.Run —— 엔진은 goal 노드가 준비된 뒤에 시작해, planner 가 goal 보다 먼저 실행되는 경쟁을 피한다.
 //
-// 异步(goroutine)所以调用方立即返回,两条路径行为一致:秒建任务、后台拆目标。
+// 비동기(goroutine)이므로 호출자는 즉시 반환하며, 두 경로의 동작이 같다: 작업을 순식간에 만들고 백그라운드에서 목표를 분해한다.
 func (s *Server) launchTask(t *Task, seedText string, seedFirstIntent bool) {
 	if !s.engine.beginTaskOperation(t.ID) {
 		return
@@ -36,7 +36,7 @@ func (s *Server) launchTask(t *Task, seedText string, seedFirstIntent bool) {
 	}
 	s.engine.decInflight(t.ID)
 	if _, err := s.admitTask(t, "bootstrap"); err != nil {
-		log.Printf("[concurrency] task %s 启动失败: %v", t.ID, err)
+		log.Printf("[concurrency] task %s 시작 실패: %v", t.ID, err)
 	}
 }
 
@@ -46,7 +46,7 @@ func (s *Server) startTaskEngine(t *Task) {
 		return
 	}
 	s.engine.emitActivity(t, db.Activity{Worker: "planner", Kind: "round",
-		Summary: "第 0 轮目标拆解"})
+		Summary: "0 번째 목표 분해"})
 	goals := s.createGoals(ctx, t, func(r db.Activity) {
 		s.engine.emitActivity(t, r)
 	})
@@ -138,15 +138,15 @@ func (s *Server) admitTaskWhenScheduled(t *Task, mode string, requirePaused, sch
 			return false, err
 		}
 		if !managed {
-			return false, fmt.Errorf("人工暂停优先，计划不能恢复")
+			return false, fmt.Errorf("수동 일시 중지가 우선이므로 계획을 재개할 수 없습니다")
 		}
 	}
 	if requirePaused {
 		if isTerminalStatus(lifecycle.Status) {
-			return false, fmt.Errorf("终态任务不能执行继续")
+			return false, fmt.Errorf("최종 상태 작업은 이어가기를 실행할 수 없습니다")
 		}
 		if !lifecycle.Paused {
-			return false, fmt.Errorf("仅已暂停的任务可以继续")
+			return false, fmt.Errorf("일시 중지된 작업만 이어갈 수 있습니다")
 		}
 		mode = s.resumeAdmissionMode(t)
 	}
@@ -197,8 +197,8 @@ func (s *Server) admitTaskWhenScheduled(t *Task, mode string, requirePaused, sch
 	// this ordering, its already-running worker loops can claim the newly-opened
 	// intent in the gap between status=running and queued=true.
 	if shouldQueue || wasTerminal || wasPaused || wasQueued {
-		s.engine.Pause(t.ID, agent.Causef("queued_for_admission", "任务等待运行准入",
-			"任务正在等待并发队列或准入状态提交，本次执行已停止；只有获得运行槽后才会重新领取意图"))
+		s.engine.Pause(t.ID, agent.Causef("queued_for_admission", "작업이 실행 준비를 기다리는 중",
+			"작업이 동시 실행 대기열 또는 준입 상태 제출을 기다리는 중이어서 이번 실행이 중지되었습니다. 실행 슬롯을 얻은 뒤에야 의도를 다시 받습니다"))
 	}
 
 	status := lifecycle.Status
@@ -219,12 +219,12 @@ func (s *Server) admitTaskWhenScheduled(t *Task, mode string, requirePaused, sch
 	}
 	if shouldQueue {
 		if !wasQueued {
-			summary := fmt.Sprintf("已排队：达到并发上限 %d，等待空位后自动开始", limit)
+			summary := fmt.Sprintf("대기열에 넣음: 동시 실행 상한 %d 에 도달해, 빈자리가 생기면 자동으로 시작합니다", limit)
 			switch {
 			case !ready:
-				summary = "已排队：当前没有可运行的 LLM 配置，配置恢复后自动开始"
+				summary = "대기열에 넣음: 현재 실행 가능한 LLM 설정이 없어, 설정이 복구되면 자동으로 시작합니다"
 			case readyBacklog:
-				summary = "已排队：已有更早的任务等待运行，将按 FIFO 顺序自动开始"
+				summary = "대기열에 넣음: 더 이른 작업이 실행을 기다리고 있어, FIFO 순서로 자동 시작합니다"
 			}
 			s.engine.emitActivity(t, db.Activity{Worker: "system", Kind: "text", Summary: summary})
 		}
@@ -286,15 +286,15 @@ func (s *Server) reconcileConcurrency() {
 				continue
 			}
 			mode := s.resumeAdmissionMode(task)
-			s.engine.Pause(task.ID, agent.Causef("llm_unavailable_queued", "LLM 不可用，任务进入等待队列",
-				"任务当前无法解析可运行的 Planner/Worker LLM，已释放并发槽；配置恢复后按队列顺序继续"))
+			s.engine.Pause(task.ID, agent.Causef("llm_unavailable_queued", "LLM 을 사용할 수 없어 작업이 대기열에 들어감",
+				"작업이 현재 실행 가능한 Planner/Worker LLM 을 해석하지 못해 동시 실행 슬롯을 반납했습니다. 설정이 복구되면 대기열 순서대로 계속합니다"))
 			if err := s.m.EnqueueTask(task.ID, mode); err != nil {
 				s.engine.Resume(task)
-				log.Printf("[concurrency] task %s 因 LLM 不可用入队失败: %v", task.ID, err)
+				log.Printf("[concurrency] task %s LLM 사용 불가로 대기열 추가 실패: %v", task.ID, err)
 				continue
 			}
 			s.engine.emitActivity(task, db.Activity{Worker: "system", Kind: "text",
-				Summary: "已排队：当前没有可运行的 LLM 配置，配置恢复后自动开始"})
+				Summary: "대기열에 넣음: 현재 실행 가능한 LLM 설정이 없어, 설정이 복구되면 자동으로 시작합니다"})
 		}
 	}
 
@@ -366,18 +366,18 @@ func (s *Server) reconcileConcurrency() {
 	}
 }
 
-// reviveTask 让一个已停下的任务重新跑起来:把终态(done/failed/timeout)拉回 running、
-// 解除暂停,并(重)启动引擎循环 + 唤醒。已在 running 且未暂停的任务:只剩 Run 里的一次
-// Notify,近乎无副作用。用于「主 agent set_goals 新增目标」和「重跑 blocked 意图」两处。
+// reviveTask 는 멈춘 작업을 다시 실행되게 한다: 최종 상태(done/failed/timeout)를 running 으로 되돌리고,
+// 일시 중지를 해제하며, 엔진 루프를 (다시) 시작하고 깨운다. 이미 running 이고 일시 중지되지 않은 작업은 Run 의 한 번의
+// Notify 만 남아 거의 부작용이 없다. 「메인 agent set_goals 로 목표 추가」와 「blocked 의도 다시 실행」 두 곳에 쓴다.
 //
-// 为什么必须显式复活:planner/worker 循环的终态门(engine.go)会吞掉普通 notify——光改
-// 图 + Notify 唤不醒已判完成的任务;重启后终态任务的 goroutine 也可能已不在,故还要 Run。
+// 명시적으로 되살려야 하는 이유: planner/worker 루프의 최종 상태 게이트(engine.go)가 일반 notify 를 삼킨다——그래프만 바꾸고
+// Notify 해서는 이미 완료 판정된 작업을 깨울 수 없다. 재시작 후에는 최종 상태 작업의 goroutine 이 이미 없을 수도 있어 Run 도 필요하다.
 func (s *Server) reviveTask(t *Task) {
 	if t == nil {
 		return
 	}
 	if _, err := s.admitTask(t, "resume"); err != nil {
-		log.Printf("[revive] task %s 恢复失败: %v", t.ID, err)
+		log.Printf("[revive] task %s 복구 실패: %v", t.ID, err)
 	}
 }
 
@@ -416,7 +416,7 @@ func (s *Server) createGoals(ctx context.Context, t *Task, emit func(db.Activity
 		// as a single goal so the task still has something to judge against. This is the
 		// only path that writes here — decomposed goals are already persisted by the tool.
 		if g := strings.TrimSpace(t.Goal); g != "" {
-			log.Printf("[goals] task %s: LLM 目标拆解无产出，回退为「原始目标作为单目标」", t.ID)
+			log.Printf("[goals] task %s: LLM 목표 분해에 산출이 없어 「원래 목표를 단일 목표로」 되돌립니다", t.ID)
 			origin, _ := t.Store.OriginFactID()
 			id, _ := t.Store.AddNode(db.KindGoal, map[string]any{"text": g}, 0, "open", "system", nil)
 			if origin > 0 && id > 0 {

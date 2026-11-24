@@ -16,7 +16,7 @@ func (s *Server) personalResearchState(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(r.URL.Query().Get("q")) > 500 {
-		writeErr(w, 400, "研究记录查询最多 500 字节")
+		writeErr(w, 400, "연구 기록 조회는 최대 500 바이트입니다")
 		return
 	}
 	cfg, _, configured := s.personalProfileConfig(c)
@@ -28,17 +28,17 @@ func (s *Server) personalResearchState(w http.ResponseWriter, r *http.Request) {
 	}
 	memory, err := agent.NewResearchMemory(root)
 	if err != nil {
-		writeErr(w, 500, "研究记录暂不可读："+err.Error())
+		writeErr(w, 500, "연구 기록을 지금은 읽을 수 없습니다: "+err.Error())
 		return
 	}
 	state, err := memory.Recall(r.Context(), agent.ResearchRecallInput{Query: r.URL.Query().Get("q"), Limit: 20, VerifyEvidence: r.URL.Query().Get("verify") == "true"})
 	if err != nil {
-		writeErr(w, 500, "研究记录读取失败："+err.Error())
+		writeErr(w, 500, "연구 기록 읽기 실패: "+err.Error())
 		return
 	}
 	run, err := memory.RunState()
 	if err != nil {
-		writeErr(w, 500, "研究运行状态读取失败："+err.Error())
+		writeErr(w, 500, "연구 실행 상태 읽기 실패: "+err.Error())
 		return
 	}
 	if run != nil && run.Status == "active" {

@@ -24,7 +24,7 @@ func (b *RunBudget) reserve() error {
 	for {
 		used := b.calls.Load()
 		if used >= b.Limit {
-			return &ResearchIncompleteError{Status: "budget_exhausted", Detail: fmt.Sprintf("本轮共享模型调用预算已用完（%d 次），请检查现有结果后继续", b.Limit)}
+			return &ResearchIncompleteError{Status: "budget_exhausted", Detail: fmt.Sprintf("이번 턴의 공유 모델 호출 예산(%d 회)을 모두 사용했습니다. 기존 결과를 확인한 뒤 계속하세요", b.Limit)}
 		}
 		if b.calls.CompareAndSwap(used, used+1) {
 			if b.OnCall != nil {

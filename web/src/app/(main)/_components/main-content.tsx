@@ -14,7 +14,7 @@ export function MainContent({ children }: { children: ReactNode }) {
   return (
     <>
       <header className="prts-header">
-        <SidebarTrigger aria-label="切换导航" />
+        <SidebarTrigger aria-label="내비게이션 전환" />
         {!chat && <strong className="text-sm">{sectionFor(path)[0]}</strong>}
         <div className="order-last max-md:ml-auto">
           <ThemeSwitcher />

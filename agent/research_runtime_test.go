@@ -69,7 +69,7 @@ func TestResearchRuntimeActivation(t *testing.T) {
 				ctx = WithResearchOptimization(ctx, false)
 			}
 			opts := agentcore.Options{SystemPrompt: []string{"original"}}
-			if err := AttachResearchRuntime(ctx, &opts, tc.model, filepath.Join(t.TempDir(), "missing"), "源码审计"); err != nil {
+			if err := AttachResearchRuntime(ctx, &opts, tc.model, filepath.Join(t.TempDir(), "missing"), "소스 감사"); err != nil {
 				t.Fatal(err)
 			}
 			if opts.Hooks != nil || len(opts.Tools) != 0 || len(opts.SystemPrompt) != 1 {
@@ -79,7 +79,7 @@ func TestResearchRuntimeActivation(t *testing.T) {
 	}
 	root := t.TempDir()
 	opts := agentcore.Options{Provider: &researchRuntimeProvider{model: "deepseek-flash"}}
-	if err := AttachResearchRuntime(t.Context(), &opts, "task-router", root, "源码审计"); err != nil {
+	if err := AttachResearchRuntime(t.Context(), &opts, "task-router", root, "소스 감사"); err != nil {
 		t.Fatal(err)
 	}
 	if _, ok := opts.Hooks.(*researchRuntime); !ok {
@@ -116,7 +116,7 @@ func TestResearchRuntimeEvidenceAndRecovery(t *testing.T) {
 	root := t.TempDir()
 	calls := 0
 	opts := agentcore.Options{WorkingDir: root, Tools: []actool.CoreTool{guardPanic(researchFixtureTool("read_fixture", false, &calls))}}
-	if err := AttachResearchRuntime(t.Context(), &opts, "deepseek-flash", root, "检查 API 响应证据"); err != nil {
+	if err := AttachResearchRuntime(t.Context(), &opts, "deepseek-flash", root, "API 응답 증거 확인"); err != nil {
 		t.Fatal(err)
 	}
 	wrapped := opts.Tools[0]
@@ -138,16 +138,16 @@ func TestResearchRuntimeEvidenceAndRecovery(t *testing.T) {
 	if len(state.Observations) != 1 {
 		t.Fatalf("wrapper and post-hook double counted: %d", len(state.Observations))
 	}
-	recorded := researchInvoke(t, &opts, "research_record", `{"objective":"验证 API 访问边界","entry":{"kind":"fact","summary":"本地夹具返回可读内容","evidence_ids":["t000001"]},"next_steps":["复核另一身份响应"]}`)
+	recorded := researchInvoke(t, &opts, "research_record", `{"objective":"API 접근 경계 검증","entry":{"kind":"fact","summary":"로컬 픽스처가 읽을 수 있는 내용을 반환","evidence_ids":["t000001"]},"next_steps":["다른 신원 응답 재검토"]}`)
 	if recorded.IsError {
 		t.Fatal(recorded.Flatten())
 	}
 	restored := agentcore.Options{}
-	if err := AttachResearchRuntime(t.Context(), &restored, "deepseek-flash", root, "继续研究"); err != nil {
+	if err := AttachResearchRuntime(t.Context(), &restored, "deepseek-flash", root, "연구 계속"); err != nil {
 		t.Fatal(err)
 	}
 	prompt := strings.Join(restored.SystemPrompt, "\n")
-	if !strings.Contains(prompt, "本地夹具返回可读内容") || !strings.Contains(prompt, "复核另一身份响应") {
+	if !strings.Contains(prompt, "로컬 픽스처가 읽을 수 있는 내용을 반환") || !strings.Contains(prompt, "다른 신원 응답 재검토") {
 		t.Fatal("restart lost persisted checkpoint")
 	}
 	// Tools injected by NewSession after Attach still pass through PostToolUse.
@@ -163,7 +163,7 @@ func TestResearchRuntimeFailureFeedbackAndControlledRetry(t *testing.T) {
 	root := t.TempDir()
 	failed, success := 0, 0
 	opts := agentcore.Options{WorkingDir: root, Tools: []actool.CoreTool{researchFixtureTool("query_local", true, &failed), researchFixtureTool("inspect_environment", false, &success)}}
-	if err := AttachResearchRuntime(t.Context(), &opts, "deepseek-flash", root, "API 故障恢复"); err != nil {
+	if err := AttachResearchRuntime(t.Context(), &opts, "deepseek-flash", root, "API 장애 복구"); err != nil {
 		t.Fatal(err)
 	}
 	input := `{"b":2,"a":1}`
@@ -174,11 +174,11 @@ func TestResearchRuntimeFailureFeedbackAndControlledRetry(t *testing.T) {
 		}
 	}
 	res := researchInvoke(t, &opts, "query_local", `{ "a":1,"b":2 }`)
-	if failed != 3 || !res.IsError || !strings.Contains(res.Flatten(), "连续失败") {
+	if failed != 3 || !res.IsError || !strings.Contains(res.Flatten(), "연속 실패") {
 		t.Fatal("equivalent input repeated side effect")
 	}
 	// A decision citing only the failed operation does not justify retrying.
-	res = researchInvoke(t, &opts, "research_record", `{"entry":{"kind":"decision","summary":"检查环境前暂不重试","evidence_ids":["t000003"]}}`)
+	res = researchInvoke(t, &opts, "research_record", `{"entry":{"kind":"decision","summary":"환경을 확인하기 전에는 재시도하지 않음","evidence_ids":["t000003"]}}`)
 	if res.IsError {
 		t.Fatal(res.Flatten())
 	}
@@ -188,7 +188,7 @@ func TestResearchRuntimeFailureFeedbackAndControlledRetry(t *testing.T) {
 	researchInvoke(t, &opts, "inspect_environment", `{}`)
 	state, _ := opts.Hooks.(*researchRuntime).memory.Snapshot()
 	newEvidence := state.Observations[len(state.Observations)-1].ID
-	decision, _ := json.Marshal(ResearchRecordInput{RequestID: "one-retry", Entry: &ResearchEntryInput{Kind: "decision", Summary: "新观察说明可尝试一次重试", EvidenceIDs: []string{"t000003", newEvidence}}})
+	decision, _ := json.Marshal(ResearchRecordInput{RequestID: "one-retry", Entry: &ResearchEntryInput{Kind: "decision", Summary: "새 관찰에 따라 한 번 재시도할 수 있음", EvidenceIDs: []string{"t000003", newEvidence}}})
 	res = researchInvoke(t, &opts, "research_record", string(decision))
 	if res.IsError {
 		t.Fatal(res.Flatten())
@@ -229,7 +229,7 @@ func (h *researchHookFixture) FireSessionEnd(context.Context)   { h.ends++ }
 func TestResearchRuntimePreservesGuardAndStop(t *testing.T) {
 	base := &researchHookFixture{blocked: true}
 	opts := agentcore.Options{Hooks: base}
-	if err := AttachResearchRuntime(t.Context(), &opts, "deepseek-flash", t.TempDir(), "源码审计"); err != nil {
+	if err := AttachResearchRuntime(t.Context(), &opts, "deepseek-flash", t.TempDir(), "소스 감사"); err != nil {
 		t.Fatal(err)
 	}
 	rt := opts.Hooks.(*researchRuntime)
@@ -256,7 +256,7 @@ func TestResearchRuntimePreservesGuardAndStop(t *testing.T) {
 		t.Fatal("optional hooks lost")
 	}
 	plain := agentcore.Options{}
-	if err := AttachResearchRuntime(t.Context(), &plain, "deepseek-flash", t.TempDir(), "你好"); err != nil {
+	if err := AttachResearchRuntime(t.Context(), &plain, "deepseek-flash", t.TempDir(), "안녕하세요"); err != nil {
 		t.Fatal(err)
 	}
 	if plain.Hooks != nil || len(plain.Tools) != 0 || len(plain.SystemPrompt) != 0 {
@@ -276,10 +276,10 @@ func TestResearchRuntimeUnreadableMemoryDoesNotBlockChat(t *testing.T) {
 	}
 	base := &researchHookFixture{}
 	opts := agentcore.Options{Hooks: base, SystemPrompt: []string{"existing rules"}}
-	if err := AttachResearchRuntime(t.Context(), &opts, "deepseek-flash", root, "你好"); err != nil {
+	if err := AttachResearchRuntime(t.Context(), &opts, "deepseek-flash", root, "안녕하세요"); err != nil {
 		t.Fatal(err)
 	}
-	if opts.Hooks != base || len(opts.Tools) != 0 || !strings.Contains(strings.Join(opts.SystemPrompt, "\n"), "不覆盖原文件") {
+	if opts.Hooks != base || len(opts.Tools) != 0 || !strings.Contains(strings.Join(opts.SystemPrompt, "\n"), "원본 파일도 덮어쓰지 않는다") {
 		t.Fatal("failed enhancement did not degrade transparently")
 	}
 	after, err := os.ReadFile(path)
@@ -293,7 +293,7 @@ func TestResearchRuntimePausedReadsWithoutWriting(t *testing.T) {
 	ctx := WithPersonalReadOnly(t.Context())
 	calls := 0
 	opts := agentcore.Options{EnableWebFetch: true, Tools: []actool.CoreTool{researchFixtureTool("Bash", false, &calls), researchFixtureTool("Read", false, &calls)}}
-	if err := AttachResearchRuntime(ctx, &opts, "deepseek-flash", root, "查看已有证据"); err != nil {
+	if err := AttachResearchRuntime(ctx, &opts, "deepseek-flash", root, "기존 증거 보기"); err != nil {
 		t.Fatal(err)
 	}
 	personalSessionOptions(ctx, &opts)
@@ -331,7 +331,7 @@ func TestResearchRuntimeLinkedTaskRoot(t *testing.T) {
 	t.Cleanup(func() { TaskResearchRoot = old })
 	ctx := WithRunInfo(t.Context(), RunInfo{TaskID: 42})
 	opts := agentcore.Options{}
-	if err := AttachResearchRuntime(ctx, &opts, "deepseek-flash", taskRoot, "继续"); err != nil {
+	if err := AttachResearchRuntime(ctx, &opts, "deepseek-flash", taskRoot, "계속"); err != nil {
 		t.Fatal(err)
 	}
 	want, err := filepath.EvalSymlinks(conversationRoot)
@@ -392,7 +392,7 @@ func TestResearchRuntimeProductionChat(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
 	defer cancel()
 	ctx = WithModelObserver(ctx, &ModelObserver{Started: func() {}, Usage: func(llm.Usage) {}})
-	if _, err := ca.Chat(ctx, "personal", "fixture-research", "核对本地 API 响应证据", 3, 15*time.Second, false, nil); err != nil {
+	if _, err := ca.Chat(ctx, "personal", "fixture-research", "로컬 API 응답 증거 확인", 3, 15*time.Second, false, nil); err != nil {
 		t.Fatal(err)
 	}
 	memory, err := NewResearchMemory(filepath.Join(root, "sessions", "fixture-research"))

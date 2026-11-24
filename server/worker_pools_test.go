@@ -380,7 +380,7 @@ func TestDetachedIntentPinnedOwnerUsesPinnedResolver(t *testing.T) {
 		return nil, nil
 	})
 	err = e.runDetachedIntent(context.Background(), task, intentID, "request", "human", "agent")
-	if err == nil || !strings.Contains(err.Error(), "LLM 配置 #12 不可用") {
+	if err == nil || !strings.Contains(err.Error(), "LLM 설정 #12 를 사용할 수 없습니다") {
 		t.Fatalf("runDetachedIntent err=%v", err)
 	}
 	if pinnedCalls.Load() != 1 || snapshotCalls.Load() != 0 {

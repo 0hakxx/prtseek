@@ -194,7 +194,7 @@ func generatedSedSnapshot(stmt *syntax.Stmt, args []*syntax.Word, dir, target st
 		}
 		raw, err := readScript(source)
 		if err != nil {
-			return "", "固定替换的原脚本无法读取：" + err.Error(), false
+			return "", "고정 치환의 원본 스크립트를 읽을 수 없음: " + err.Error(), false
 		}
 		content = string(raw)
 	}

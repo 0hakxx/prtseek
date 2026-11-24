@@ -191,7 +191,7 @@ func (b *flashSSEBody) next() error {
 			data.WriteString(strings.TrimPrefix(strings.TrimPrefix(line, "data:"), " "))
 			data.WriteByte('\n')
 			if data.Len() > flashStreamLimit {
-				return flashError("oversize_frame", "SSE 单帧超过本地 4 MiB 限制")
+				return flashError("oversize_frame", "SSE 단일 프레임이 로컬 4 MiB 제한을 초과했습니다")
 			}
 		}
 	}
@@ -202,7 +202,7 @@ func (b *flashSSEBody) next() error {
 		return b.transform(strings.TrimSuffix(data.String(), "\n"))
 	}
 	if len(b.tools) > 0 && !b.finished {
-		return flashError("truncated_tool", "SSE 在工具参数完成前断开；工具未执行")
+		return flashError("truncated_tool", "도구 파라미터가 완성되기 전에 SSE 가 끊겼습니다. 도구는 실행하지 않았습니다")
 	}
 	return io.EOF
 }
@@ -210,21 +210,21 @@ func (b *flashSSEBody) next() error {
 func (b *flashSSEBody) transform(data string) error {
 	if strings.TrimSpace(data) == "[DONE]" {
 		if len(b.tools) > 0 && !b.finished {
-			return flashError("truncated_tool", "SSE 没有工具完成标记；工具未执行")
+			return flashError("truncated_tool", "SSE 에 도구 완료 표시가 없습니다. 도구는 실행하지 않았습니다")
 		}
 		b.out.WriteString("data: [DONE]\n\n")
 		return nil
 	}
 	var frame map[string]json.RawMessage
 	if err := json.Unmarshal([]byte(data), &frame); err != nil {
-		return flashError("invalid_frame", "无法解析 SSE JSON 帧")
+		return flashError("invalid_frame", "SSE JSON 프레임을 파싱할 수 없습니다")
 	}
 	if raw := frame["error"]; len(raw) > 0 && string(raw) != "null" {
 		return flashRemoteError(raw)
 	}
 	var choices []map[string]json.RawMessage
 	if err := json.Unmarshal(frame["choices"], &choices); err != nil {
-		return flashError("invalid_frame", "SSE choices 不是有效数组")
+		return flashError("invalid_frame", "SSE choices 가 유효한 배열이 아닙니다")
 	}
 	if len(choices) == 0 {
 		b.emit(data) // usage-only frame
@@ -234,7 +234,7 @@ func (b *flashSSEBody) transform(data string) error {
 	var delta map[string]json.RawMessage
 	if len(choice["delta"]) > 0 && string(choice["delta"]) != "null" {
 		if err := json.Unmarshal(choice["delta"], &delta); err != nil {
-			return flashError("invalid_frame", "SSE delta 不是有效对象")
+			return flashError("invalid_frame", "SSE delta 가 유효한 객체가 아닙니다")
 		}
 	}
 	if delta == nil {
@@ -243,13 +243,13 @@ func (b *flashSSEBody) transform(data string) error {
 	var fragments []flashWireTool
 	if raw := delta["tool_calls"]; len(raw) > 0 && string(raw) != "null" {
 		if err := json.Unmarshal(raw, &fragments); err != nil {
-			return flashError("invalid_tool_frame", "无法解析工具调用片段")
+			return flashError("invalid_tool_frame", "도구 호출 조각을 파싱할 수 없습니다")
 		}
 	}
 	delete(delta, "tool_calls")
 	for _, frag := range fragments {
 		if b.finished || frag.Index < 0 || frag.Index > 1024 {
-			return flashError("invalid_tool_index", "工具调用片段序号或顺序无效")
+			return flashError("invalid_tool_index", "도구 호출 조각의 번호나 순서가 유효하지 않습니다")
 		}
 		call := b.tools[frag.Index]
 		if call == nil {
@@ -258,18 +258,18 @@ func (b *flashSSEBody) transform(data string) error {
 		}
 		if frag.ID != "" {
 			if call.ID != "" && call.ID != frag.ID {
-				return flashError("changed_tool_id", "同一工具序号在流中更换了调用 ID")
+				return flashError("changed_tool_id", "같은 도구 번호의 호출 ID 가 스트림 중에 바뀌었습니다")
 			}
 			call.ID = frag.ID
 		}
 		if frag.Type != "" && frag.Type != "function" {
-			return flashError("invalid_tool_type", "收到非 function 工具调用")
+			return flashError("invalid_tool_type", "function 이 아닌 도구 호출을 받았습니다")
 		}
 		call.Function.Name += frag.Function.Name
 		call.Function.Arguments += frag.Function.Arguments
 		b.toolSize += len(frag.Function.Name) + len(frag.Function.Arguments) + len(frag.ID)
 		if b.toolSize > flashStreamLimit {
-			return flashError("oversize_tool", "工具调用数据超过本地 4 MiB 限制")
+			return flashError("oversize_tool", "도구 호출 데이터가 로컬 4 MiB 제한을 초과했습니다")
 		}
 	}
 	var stop string
@@ -277,7 +277,7 @@ func (b *flashSSEBody) transform(data string) error {
 	if stop != "" {
 		if len(b.tools) > 0 {
 			if stop != "tool_calls" && stop != "stop" {
-				return flashError("truncated_tool", "模型在工具参数生成完成前结束（"+stop+"）；工具未执行")
+				return flashError("truncated_tool", "도구 파라미터 생성이 끝나기 전에 모델이 종료했습니다("+stop+"). 도구는 실행하지 않았습니다")
 			}
 			indexes := make([]int, 0, len(b.tools))
 			for index := range b.tools {
@@ -292,7 +292,7 @@ func (b *flashSSEBody) transform(data string) error {
 					return err
 				}
 				if seen[call.ID] {
-					return flashError("duplicate_tool_id", "回复中有重复的工具调用 ID")
+					return flashError("duplicate_tool_id", "응답에 중복된 도구 호출 ID 가 있습니다")
 				}
 				seen[call.ID] = true
 				complete = append(complete, *call)

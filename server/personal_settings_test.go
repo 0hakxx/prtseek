@@ -152,8 +152,8 @@ func TestListModelsFollowsPaginationAndDeduplicates(t *testing.T) {
 
 func TestPersonalLanguageStableUntilExplicitChange(t *testing.T) {
 	cases := []struct{ message, previous, want string }{
-		{"帮我检查本地文件", "", "zh"}, {"Please inspect local files", "", "en"},
-		{"curl http://localhost", "zh", "zh"}, {"继续，用英文回复", "zh", "en"}, {"reply in Chinese", "en", "zh"},
+		{"로컬 파일 확인을 도와줘", "", "zh"}, {"Please inspect local files", "", "en"},
+		{"curl http://localhost", "zh", "zh"}, {"계속, 영어로 답해 줘", "zh", "en"}, {"reply in Chinese", "en", "zh"},
 	}
 	for _, c := range cases {
 		if got := inferPersonalLanguage(c.message, c.previous); got != c.want {

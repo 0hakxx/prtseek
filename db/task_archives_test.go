@@ -138,7 +138,7 @@ func TestTaskArchiveDatabaseRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	remark := "归档后保留的备注 📝"
+	remark := "보관 후 유지되는 메모 📝"
 	if _, err := d.UpdateTask(task.ID, TaskPatch{Remark: &remark}); err != nil {
 		t.Fatal(err)
 	}
@@ -288,7 +288,7 @@ VALUES($1,$2,0,'quota_exhausted','balance exhausted',$3,$4,$3)`, task.ID, llmPro
 	}
 	warningFound := false
 	for _, warning := range warnings {
-		if strings.Contains(warning, fmt.Sprintf("任务企业 %d 已删除", companyID)) {
+		if strings.Contains(warning, fmt.Sprintf("작업 기업 %d 가 삭제되어", companyID)) {
 			warningFound = true
 		}
 	}

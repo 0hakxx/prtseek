@@ -92,13 +92,13 @@ func flashReplayReasoning(b llm.ContentBlock) ([]json.RawMessage, error) {
 		data, err := base64.RawStdEncoding.DecodeString(encoded)
 		var state flashReasoningState
 		if err != nil || len(data) > flashResponsesLimit || json.Unmarshal(data, &state) != nil || state.Hash != flashTextHash(b.Thinking) {
-			return nil, flashError("reasoning_state", "Responses 思考原文与保存的协议状态不匹配")
+			return nil, flashError("reasoning_state", "Responses 사고 원문이 저장된 프로토콜 상태와 일치하지 않습니다")
 		}
 		var text strings.Builder
 		for _, raw := range state.Items {
 			var item flashResponseItem
 			if json.Unmarshal(raw, &item) != nil || item.Type != "reasoning" {
-				return nil, flashError("reasoning_state", "Responses 思考状态包含无效 item")
+				return nil, flashError("reasoning_state", "Responses 사고 상태에 유효하지 않은 item 이 있습니다")
 			}
 			for _, part := range item.Content {
 				if part.Type == "reasoning_text" {
@@ -107,7 +107,7 @@ func flashReplayReasoning(b llm.ContentBlock) ([]json.RawMessage, error) {
 			}
 		}
 		if text.String() != b.Thinking {
-			return nil, flashError("reasoning_state", "Responses 保存的 item 内容与原始思考不一致")
+			return nil, flashError("reasoning_state", "Responses 에 저장된 item 내용이 원래 사고와 일치하지 않습니다")
 		}
 		return state.Items, nil
 	}
@@ -161,12 +161,12 @@ func (p *flashResponsesProvider) request(ctx context.Context, req llm.Completion
 					if part.Type == llm.BlockText {
 						text.WriteString(part.Text)
 					} else {
-						return nil, req, flashError("unsupported_content", "当前 Responses 适配器无法编码该工具结果内容；附件未发送，请使用支持该类型的输入通道")
+						return nil, req, flashError("unsupported_content", "현재 Responses 어댑터는 이 도구 결과 내용을 인코딩할 수 없습니다. 첨부 파일은 전송하지 않았으니 해당 유형을 지원하는 입력 채널을 사용하세요")
 					}
 				}
 				value = map[string]any{"type": "function_call_output", "call_id": b.ToolUseID, "output": text.String()}
 			default:
-				return nil, req, flashError("unsupported_content", "当前 Responses 适配器无法编码该消息内容；附件未发送，请使用支持该类型的输入通道")
+				return nil, req, flashError("unsupported_content", "현재 Responses 어댑터는 이 메시지 내용을 인코딩할 수 없습니다. 첨부 파일은 전송하지 않았으니 해당 유형을 지원하는 입력 채널을 사용하세요")
 			}
 			raw, _ := json.Marshal(value)
 			input = append(input, raw)
@@ -275,7 +275,7 @@ func (p *flashResponsesProvider) do(ctx context.Context, data []byte, stream boo
 func decodeFlashResponse(raw []byte) (llm.Message, string, llm.Usage, error) {
 	var r flashResponseEnvelope
 	if json.Unmarshal(raw, &r) != nil {
-		return llm.Message{}, "", llm.Usage{}, flashError("invalid_response", "Responses JSON 无效")
+		return llm.Message{}, "", llm.Usage{}, flashError("invalid_response", "Responses JSON 이 유효하지 않습니다")
 	}
 	usage := llm.Usage{InputTokens: r.Usage.Input, OutputTokens: r.Usage.Output, CacheReadTokens: r.Usage.Details.Cached}
 	if len(r.Error) > 0 && string(r.Error) != "null" {
@@ -287,13 +287,13 @@ func decodeFlashResponse(raw []byte) (llm.Message, string, llm.Usage, error) {
 	case "incomplete":
 		stop = "max_tokens"
 	default:
-		return llm.Message{}, "", usage, flashError("incomplete_response", "Responses 缺少有效终态")
+		return llm.Message{}, "", usage, flashError("incomplete_response", "Responses 에 유효한 최종 상태가 없습니다")
 	}
 	msg := llm.Message{Role: llm.RoleAssistant}
 	for _, rawItem := range r.Output {
 		var item flashResponseItem
 		if json.Unmarshal(rawItem, &item) != nil {
-			return llm.Message{}, stop, usage, flashError("invalid_item", "Responses output item 无效")
+			return llm.Message{}, stop, usage, flashError("invalid_item", "Responses output item 이 유효하지 않습니다")
 		}
 		switch item.Type {
 		case "reasoning":
@@ -312,11 +312,11 @@ func decodeFlashResponse(raw []byte) (llm.Message, string, llm.Usage, error) {
 			}
 		case "function_call":
 			if item.Status != "" && item.Status != "completed" {
-				return llm.Message{}, stop, usage, flashError("truncated_tool", "Responses 工具 item 未完成")
+				return llm.Message{}, stop, usage, flashError("truncated_tool", "Responses 도구 item 이 완료되지 않았습니다")
 			}
 			msg.Content = append(msg.Content, llm.ContentBlock{Type: llm.BlockToolUse, ID: item.CallID, Name: item.Name, Input: json.RawMessage(item.Arguments)})
 		case "custom_tool_call", "tool_search_call":
-			return llm.Message{}, stop, usage, flashError("unsupported_tool", "Responses 返回了本 agent 未声明的工具类型")
+			return llm.Message{}, stop, usage, flashError("unsupported_tool", "Responses 가 이 agent 에 선언되지 않은 도구 유형을 반환했습니다")
 		}
 	}
 	if r.Status == "completed" && len(msg.ToolUses()) > 0 {
@@ -343,7 +343,7 @@ func (p *flashResponsesProvider) Complete(ctx context.Context, req llm.Completio
 		return llm.Message{}, "", llm.Usage{}, err
 	}
 	if len(raw) > flashResponsesLimit {
-		return llm.Message{}, "", llm.Usage{}, flashError("oversize_response", "Responses 超过本地32MiB限制")
+		return llm.Message{}, "", llm.Usage{}, flashError("oversize_response", "Responses 가 로컬 32MiB 제한을 초과했습니다")
 	}
 	msg, stop, usage, err := decodeFlashResponse(raw)
 	if err == nil {

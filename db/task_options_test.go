@@ -8,11 +8,11 @@ import (
 )
 
 func TestTaskAndTemplateRemarkLimitIsShared(t *testing.T) {
-	boundary := strings.Repeat("界", MaxTaskRemarkRunes)
+	boundary := strings.Repeat("계", MaxTaskRemarkRunes)
 	if _, _, err := normalizeTaskTemplateInput(TaskTemplateInput{Name: "n", Description: "d", Goal: "g", Remark: boundary}); err != nil {
 		t.Fatalf("boundary remark rejected: %v", err)
 	}
-	if _, _, err := normalizeTaskTemplateInput(TaskTemplateInput{Name: "n", Description: "d", Goal: "g", Remark: boundary + "界"}); err == nil {
+	if _, _, err := normalizeTaskTemplateInput(TaskTemplateInput{Name: "n", Description: "d", Goal: "g", Remark: boundary + "계"}); err == nil {
 		t.Fatal("oversized template remark accepted")
 	}
 }
@@ -37,7 +37,7 @@ func TestTaskOptionsPersistAndValidateLimits(t *testing.T) {
 	defer d.Close()
 
 	if _, err := d.CreateTaskWithOptions("oversized remark", "goal", TaskCreateOptions{
-		Remark: strings.Repeat("界", MaxTaskRemarkRunes+1),
+		Remark: strings.Repeat("계", MaxTaskRemarkRunes+1),
 	}); err == nil {
 		t.Fatal("2001-rune task remark accepted")
 	}
@@ -47,7 +47,7 @@ func TestTaskOptionsPersistAndValidateLimits(t *testing.T) {
 		t.Fatal("51-worker task accepted")
 	}
 
-	remark := strings.Repeat("界", MaxTaskRemarkRunes)
+	remark := strings.Repeat("계", MaxTaskRemarkRunes)
 	task, err := d.CreateTaskWithOptions("task options boundary", "goal", TaskCreateOptions{
 		Remark: remark, WorkerCount: MaxTaskWorkerCount,
 	})
@@ -64,7 +64,7 @@ func TestTaskOptionsPersistAndValidateLimits(t *testing.T) {
 	}
 
 	name := fmt.Sprintf("options template %d", time.Now().UnixNano())
-	templateRemark := "模板备注 📝"
+	templateRemark := "템플릿 메모 📝"
 	template, err := d.CreateTaskTemplate(TaskTemplateInput{
 		Name: name, Description: "template description", Goal: "template goal",
 		Remark: templateRemark, WorkerCount: MaxTaskWorkerCount,
@@ -81,7 +81,7 @@ func TestTaskOptionsPersistAndValidateLimits(t *testing.T) {
 		t.Fatalf("created template options round trip = %+v", gotTemplate)
 	}
 
-	updatedRemark := strings.Repeat("改", MaxTaskRemarkRunes)
+	updatedRemark := strings.Repeat("고", MaxTaskRemarkRunes)
 	updatedWorkers := MaxTaskWorkerCount - 1
 	updated, err := d.PatchTaskTemplate(template.ID, TaskTemplatePatch{
 		Remark: &updatedRemark, WorkerCount: &updatedWorkers,

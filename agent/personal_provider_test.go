@@ -125,7 +125,7 @@ func TestPersonalForegroundAndGoalRuntimeContract(t *testing.T) {
 	defer func() { TaskResponseLanguage = oldLanguage }()
 	DecomposeGoalsWithProvider(t.Context(), provider, t.TempDir(), "Complete local contract check", "", nil, nil, 42, true, 0, nil)
 	encoded, _ := json.Marshal(request["messages"])
-	if !strings.Contains(string(encoded), "使用 English") {
+	if !strings.Contains(string(encoded), "English 로 작성한다") {
 		t.Fatalf("goal decomposition lost task language: %s", encoded)
 	}
 }

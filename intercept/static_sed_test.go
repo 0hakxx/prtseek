@@ -72,7 +72,7 @@ func TestStaticSedRejectsOpaqueOrUnsafeLayouts(t *testing.T) {
 	if in := reviewCommandForTest(t, dir, "sed 's/a/b/' old.sh > alias.sh; bash alias.sh"); in.ScriptCaptureStatus != "incomplete" {
 		t.Fatal("hardlink alias ignored")
 	}
-	for _, content := range []string{"no final newline", "echo 中文\n"} {
+	for _, content := range []string{"no final newline", "echo 한국어\n"} {
 		if err := os.WriteFile(filepath.Join(dir, "old.sh"), []byte(content), 0600); err != nil {
 			t.Fatal(err)
 		}

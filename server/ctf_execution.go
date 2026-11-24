@@ -141,7 +141,7 @@ func (w *ctfWorkflowRun) completionCheck(parentID int64) string {
 	if len(ids) == 0 {
 		return ""
 	}
-	return fmt.Sprintf("子任务 %v 尚在执行或结果尚未收取。使用 wait_agents 等待并读取真实结果；不再需要的分支用 cancel_agent 停止，再收取结果。不能在交付前遗留运行中的子任务。", ids)
+	return fmt.Sprintf("하위 작업 %v 가 아직 실행 중이거나 결과를 회수하지 않았습니다. wait_agents 로 기다려 실제 결과를 읽으세요. 더 이상 필요 없는 분기는 cancel_agent 로 중지한 뒤 결과를 회수하세요. 결과를 넘기기 전에 실행 중인 하위 작업을 남겨서는 안 됩니다.", ids)
 }
 
 func (s *Server) conversationTools(parent *db.Conversation) func(context.Context, string) []actool.CoreTool {
@@ -150,7 +150,7 @@ func (s *Server) conversationTools(parent *db.Conversation) func(context.Context
 			return nil
 		}
 		tools := []actool.CoreTool{
-			wrTool("delegate_agent", "同步执行一个明确的 CTF 子任务并返回结果；简单题优先只派一个 solver。", objSchema(map[string]any{"agent_key": strParam("目标角色"), "task": strParam("材料、目标、边界、验收条件")}, "agent_key", "task"), func(ctx context.Context, raw json.RawMessage) (actool.Result, error) {
+			wrTool("delegate_agent", "명확한 CTF 하위 작업 하나를 동기적으로 실행하고 결과를 반환한다. 쉬운 문제는 solver 를 하나만 분배하는 것을 우선한다.", objSchema(map[string]any{"agent_key": strParam("대상 역할"), "task": strParam("자료, 목표, 경계, 검수 조건")}, "agent_key", "task"), func(ctx context.Context, raw json.RawMessage) (actool.Result, error) {
 				var req struct {
 					AgentKey string `json:"agent_key"`
 					Task     string `json:"task"`
@@ -167,7 +167,7 @@ func (s *Server) conversationTools(parent *db.Conversation) func(context.Context
 		}
 		if _, ok := ownerCtx.Value(ctfWorkflowKey{}).(*ctfWorkflowRun); ok {
 			tools = append(tools,
-				wrTool("wait_agents", "等待本轮直属子任务；任一新结果到达即返回。结果包含独立的执行与目标状态。空 ids 表示本轮全部直属子任务。", objSchema(map[string]any{"ids": map[string]any{"type": "array", "items": map[string]any{"type": "integer"}}, "timeout_seconds": map[string]any{"type": "integer", "minimum": 1, "maximum": 30}}), func(ctx context.Context, raw json.RawMessage) (actool.Result, error) {
+				wrTool("wait_agents", "이번 턴의 직속 하위 작업을 기다린다. 새 결과 중 하나가 도착하면 바로 반환한다. 결과에는 독립된 실행 상태와 목표 상태가 들어 있다. ids 가 비어 있으면 이번 턴의 모든 직속 하위 작업을 뜻한다.", objSchema(map[string]any{"ids": map[string]any{"type": "array", "items": map[string]any{"type": "integer"}}, "timeout_seconds": map[string]any{"type": "integer", "minimum": 1, "maximum": 30}}), func(ctx context.Context, raw json.RawMessage) (actool.Result, error) {
 					var req struct {
 						IDs     []int64 `json:"ids"`
 						Timeout int     `json:"timeout_seconds"`
@@ -183,7 +183,7 @@ func (s *Server) conversationTools(parent *db.Conversation) func(context.Context
 					}
 					return s.waitCTFAgents(ctx, parent.ID, req.IDs, time.Duration(req.Timeout)*time.Second)
 				}),
-				wrTool("cancel_agent", "停止一个本轮直属子任务及其后代；随后用 wait_agents 收取最终状态。", objSchema(map[string]any{"id": map[string]any{"type": "integer"}}, "id"), func(ctx context.Context, raw json.RawMessage) (actool.Result, error) {
+				wrTool("cancel_agent", "이번 턴의 직속 하위 작업 하나와 그 자손을 중지한다. 이어서 wait_agents 로 최종 상태를 회수한다.", objSchema(map[string]any{"id": map[string]any{"type": "integer"}}, "id"), func(ctx context.Context, raw json.RawMessage) (actool.Result, error) {
 					var req struct {
 						ID int64 `json:"id"`
 					}
@@ -208,8 +208,8 @@ func (s *Server) conversationTools(parent *db.Conversation) func(context.Context
 }
 
 func (s *Server) parallelCTFDelegationTool(parent *db.Conversation, owner ...context.Context) actool.CoreTool {
-	taskSchema := objSchema(map[string]any{"agent_key": strParam("solver"), "task": strParam("互补方向、材料、目标与验收标准")}, "agent_key", "task")
-	return wrTool("delegate_agents", "启动 1 至 6 个互补 Solver 并立即返回会话编号。使用 wait_agents 逐个收取进展；简单题只启动一个。", objSchema(map[string]any{"tasks": map[string]any{"type": "array", "minItems": 1, "maxItems": 6, "items": taskSchema}}, "tasks"), func(ctx context.Context, raw json.RawMessage) (actool.Result, error) {
+	taskSchema := objSchema(map[string]any{"agent_key": strParam("solver"), "task": strParam("서로 보완하는 방향, 자료, 목표, 검수 기준")}, "agent_key", "task")
+	return wrTool("delegate_agents", "서로 보완하는 Solver 를 1~6 개 시작하고 대화 번호를 즉시 반환한다. wait_agents 로 진행 상황을 하나씩 회수한다. 쉬운 문제는 하나만 시작한다.", objSchema(map[string]any{"tasks": map[string]any{"type": "array", "minItems": 1, "maxItems": 6, "items": taskSchema}}, "tasks"), func(ctx context.Context, raw json.RawMessage) (actool.Result, error) {
 		var req struct {
 			Tasks []struct {
 				AgentKey string `json:"agent_key"`
@@ -235,7 +235,7 @@ func (s *Server) parallelCTFDelegationTool(parent *db.Conversation, owner ...con
 		capacity := w.active+len(req.Tasks) <= ctfMaxActive && w.total+len(req.Tasks) <= ctfMaxJobs
 		w.mu.Unlock()
 		if !capacity {
-			return actool.Errorf(fmt.Sprintf("本轮子任务容量不足，请先等待已有任务；总任务上限 %d，同时执行上限 %d", ctfMaxJobs, ctfMaxActive)), nil
+			return actool.Errorf(fmt.Sprintf("이번 턴의 하위 작업 용량이 부족합니다. 먼저 기존 작업을 기다리세요. 총 작업 상한 %d, 동시 실행 상한 %d", ctfMaxJobs, ctfMaxActive)), nil
 		}
 		var jobs []ctfJobView
 		childContext := ctx
@@ -284,10 +284,10 @@ func (s *Server) startCTFChild(ctx context.Context, parent *db.Conversation, key
 	}
 	depth, _ := ctx.Value(ctfDepthKey{}).(int)
 	if depth >= ctfMaxDepth {
-		return nil, fmt.Errorf("派发深度已达 %d，请直接分析或返回现有证据", ctfMaxDepth)
+		return nil, fmt.Errorf("분배 깊이가 %d 에 도달했습니다. 바로 분석하거나 기존 증거를 반환하세요", ctfMaxDepth)
 	}
 	if key == parent.AgentKey || !isDefaultCTFAgent(parent.AgentKey) || !isDefaultCTFAgent(key) {
-		return nil, fmt.Errorf("不能派发给自身或非默认 CTF 角色")
+		return nil, fmt.Errorf("자기 자신이나 기본 CTF 역할이 아닌 대상에는 분배할 수 없습니다")
 	}
 	if strings.TrimSpace(task) == "" || len(task) > 64000 {
 		return nil, fmt.Errorf("task is empty or too long")
@@ -307,7 +307,7 @@ func (s *Server) startCTFChild(ctx context.Context, parent *db.Conversation, key
 	}
 	if w.active >= ctfMaxActive || w.total >= ctfMaxJobs {
 		w.mu.Unlock()
-		return nil, fmt.Errorf("本轮派发达到上限：同时 %d，总计 %d；先等待已有任务", ctfMaxActive, ctfMaxJobs)
+		return nil, fmt.Errorf("이번 턴 분배가 상한에 도달했습니다: 동시 %d, 총계 %d. 먼저 기존 작업을 기다리세요", ctfMaxActive, ctfMaxJobs)
 	}
 	w.active++
 	w.total++
@@ -340,8 +340,8 @@ func (s *Server) startCTFChild(ctx context.Context, parent *db.Conversation, key
 	if _, err = s.m.pg.Exec(`INSERT INTO conversation_delegations(parent_id,child_id) VALUES($1,$2)`, parent.ID, child.ID); err != nil {
 		return nil, err
 	}
-	childTask := task + "\n\n父会话材料目录（只读引用，产物写自己的工作目录）：" + s.conversationWorkDir(parent.ID)
-	childTask += "\n原始题目目录：" + s.conversationWorkDir(w.rootID) + "\n先核对真实文件。结束前使用 report_outcome 返回目标状态、验收条件与证据；正常回答结束并不等于目标完成。"
+	childTask := task + "\n\n부모 대화 자료 디렉터리(읽기 전용 참조, 산출물은 자신의 작업 디렉터리에 쓸 것): " + s.conversationWorkDir(parent.ID)
+	childTask += "\n원본 문제 디렉터리: " + s.conversationWorkDir(w.rootID) + "\n먼저 실제 파일을 확인하세요. 끝내기 전에 report_outcome 으로 목표 상태, 검수 조건, 증거를 반환하세요. 정상적으로 답변을 마쳤다고 목표가 완료된 것은 아닙니다."
 	ca := s.personalChatAgent(child)
 	if ca == nil {
 		_, _ = s.m.pg.Exec(`UPDATE conversation_delegations SET state='failed' WHERE child_id=$1`, child.ID)
@@ -363,7 +363,7 @@ func (s *Server) startCTFChild(ctx context.Context, parent *db.Conversation, key
 		return nil, err
 	}
 	_, _ = s.m.pg.AppendConvActivity(child.ID, db.Activity{Worker: key, Kind: "user", Summary: firstLine(task, 200), Detail: childTask})
-	_, _ = s.m.pg.AppendConvActivity(parent.ID, db.Activity{Worker: parent.AgentKey, Kind: "text", Summary: fmt.Sprintf("已分派给 %s · 会话 #%d", key, child.ID)})
+	_, _ = s.m.pg.AppendConvActivity(parent.ID, db.Activity{Worker: parent.AgentKey, Kind: "text", Summary: fmt.Sprintf("%s 에 분배함 · 대화 #%d", key, child.ID)})
 	busyKey := s.convBusyKey(child.ID)
 	s.chatMu.Lock()
 	s.chatBusy[busyKey] = true

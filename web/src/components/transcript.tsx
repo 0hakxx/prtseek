@@ -89,7 +89,7 @@ function groupSteps(steps: Activity[], chat: boolean): Group[] {
   for (const s of steps) {
     if (s.kind === "usage") continue; // live token-usage marker — not a rendered step
     if (s.kind === "round") {
-      out.push({ type: "round", key: s.seq, label: s.summary || "新一轮" }); // planner round boundary
+      out.push({ type: "round", key: s.seq, label: s.summary || "새 턴" }); // planner round boundary
       continue;
     }
     if (s.kind === "intercept_request") {
@@ -128,7 +128,7 @@ function groupSteps(steps: Activity[], chat: boolean): Group[] {
   return out;
 }
 
-const kindLabel = (k: string) => (k === "thinking" ? "推理" : k === "result" ? "总结" : "说明");
+const kindLabel = (k: string) => (k === "thinking" ? "추론" : k === "result" ? "요약" : "설명");
 
 function ActivityTime({ ts }: { ts: string }) {
   const date = new Date(ts);
@@ -179,17 +179,17 @@ function toolInputText(tool: string, raw: string): string {
 }
 
 // InterceptCard renders an inline intercept_request approval card. The pending_id
-// is extracted from the summary (format: "工具 X 请求审批 (#N)") so buttons are
+// is extracted from the summary (format: "도구 X 승인 요청 (#N)") so buttons are
 // available immediately without waiting for the detail load.
 function InterceptCard({ step, getDetail }: { step: Activity; getDetail: (seq: number) => Promise<string> }) {
-  // extract pending_id from summary: "工具 Bash 请求审批 (#42)"
+  // extract pending_id from summary: "도구 Bash 승인 요청 (#42)"
   const pendingId = React.useMemo(() => {
     const m = /\(#(\d+)\)/.exec(step.summary);
     return m ? parseInt(m[1], 10) : null;
   }, [step.summary]);
 
   const toolName = React.useMemo(() => {
-    const m = /工具\s+(\S+)\s+请求/.exec(step.summary);
+    const m = /(?:工具|도구)\s+(\S+)\s+(?:请求|승인)/.exec(step.summary);
     return m ? m[1] : step.summary;
   }, [step.summary]);
 
@@ -235,7 +235,7 @@ function InterceptCard({ step, getDetail }: { step: Activity; getDetail: (seq: n
         if (p.status !== "pending") setDecided(p.status as "allowed" | "denied" | "timeout");
       })
       .catch((error) => {
-        if (live) setStatusError((error as Error).message || "审批详情加载失败");
+        if (live) setStatusError((error as Error).message || "승인 상세 로드 실패");
       });
     return () => {
       live = false;
@@ -248,7 +248,7 @@ function InterceptCard({ step, getDetail }: { step: Activity; getDetail: (seq: n
     try {
       await api.interceptDecide(pendingId, decision);
       setDecided(decision);
-      toast.success(decision === "allowed" ? "已允许执行" : "已拒绝执行");
+      toast.success(decision === "allowed" ? "실행을 허용했습니다" : "실행을 거부했습니다");
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -269,7 +269,7 @@ function InterceptCard({ step, getDetail }: { step: Activity; getDetail: (seq: n
           <ShieldAlertIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
           <div className="min-w-0 space-y-0.5">
             <div className="flex flex-wrap items-center gap-1.5 font-medium">
-              <span className="text-amber-700 dark:text-amber-400">审批请求</span>
+              <span className="text-amber-700 dark:text-amber-400">승인 요청</span>
               <code className="break-all border border-border px-1 font-mono text-foreground">{toolName}</code>
               {pendingId && <span className="text-muted-foreground">#{pendingId}</span>}
             </div>
@@ -278,7 +278,7 @@ function InterceptCard({ step, getDetail }: { step: Activity; getDetail: (seq: n
         </div>
 
         {step.inherited ? (
-          <Badge variant="outline">历史记录 · 只读</Badge>
+          <Badge variant="outline">과거 기록 · 읽기 전용</Badge>
         ) : decided ? (
           <span
             className={
@@ -290,7 +290,7 @@ function InterceptCard({ step, getDetail }: { step: Activity; getDetail: (seq: n
                   : "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400")
             }
           >
-            {decided === "allowed" ? "已允许" : decided === "timeout" ? "已超时" : "已拒绝"}
+            {decided === "allowed" ? "허용됨" : decided === "timeout" ? "시간 초과됨" : "거부됨"}
           </span>
         ) : (
           <div className="flex shrink-0 gap-1.5">
@@ -301,7 +301,7 @@ function InterceptCard({ step, getDetail }: { step: Activity; getDetail: (seq: n
               onClick={() => decide("allowed")}
             >
               <CheckIcon className="h-3 w-3" />
-              允许
+              허용
             </Button>
             <Button
               size="sm"
@@ -311,7 +311,7 @@ function InterceptCard({ step, getDetail }: { step: Activity; getDetail: (seq: n
               onClick={() => decide("denied")}
             >
               <XIcon className="h-3 w-3" />
-              拒绝
+              거부
             </Button>
           </div>
         )}
@@ -319,9 +319,9 @@ function InterceptCard({ step, getDetail }: { step: Activity; getDetail: (seq: n
       {pendingId ? (
         <Collapsible open={expanded} onOpenChange={setExpanded} className="mt-2 min-w-0">
           <CollapsibleTrigger asChild>
-            <Button variant="ghost" size="sm" aria-label={expanded ? "收起审批详情" : "展开审批详情"}>
+            <Button variant="ghost" size="sm" aria-label={expanded ? "승인 상세 접기" : "승인 상세 펼치기"}>
               {expanded ? <ChevronDown data-icon="inline-start" /> : <ChevronRight data-icon="inline-start" />}
-              {expanded ? "收起审批详情" : "展开审批详情"}
+              {expanded ? "승인 상세 접기" : "승인 상세 펼치기"}
             </Button>
           </CollapsibleTrigger>
           <CollapsibleContent>
@@ -339,11 +339,11 @@ function InterceptCard({ step, getDetail }: { step: Activity; getDetail: (seq: n
               <div className="flex flex-wrap items-center gap-2 p-3" role="alert">
                 <span>{statusError}</span>
                 <Button variant="outline" size="sm" onClick={() => setRetry((value) => value + 1)}>
-                  重试详情
+                  상세 다시 시도
                 </Button>
               </div>
             ) : (
-              <p className="p-3 text-muted-foreground">正在加载审批详情…</p>
+              <p className="p-3 text-muted-foreground">승인 상세를 불러오는 중…</p>
             )}
           </CollapsibleContent>
         </Collapsible>
@@ -374,7 +374,7 @@ function ToolBlock({
   // effect below re-fetches — so the output shows up instead of being cached out.
   const loadedKey = React.useRef<string | null>(null);
   const { use, result } = group;
-  const toolName = use?.tool || result?.tool || "工具";
+  const toolName = use?.tool || result?.tool || "도구";
   const ToolIcon = toolName === "Bash" ? Terminal : Wrench;
   const running = !result;
   const ok = !!result && !result.is_error;
@@ -386,8 +386,8 @@ function ToolBlock({
   const rawCmd =
     use && use.summary.startsWith(toolName) ? use.summary.slice(toolName.length).trimStart() : (use?.summary ?? "");
   const cmd = toolInputText(toolName, rawCmd);
-  // status only — the full result lives behind the expand (【输出】), not previewed inline
-  const statusText = running ? "执行中…" : ok ? "✓" : "✕ 失败";
+  // status only — the full result lives behind the expand (【출력】), not previewed inline
+  const statusText = running ? "실행 중…" : ok ? "✓" : "✕ 실패";
 
   // key over the seqs we'd load; changes when the result (or command) arrives.
   const detailKey = `${use?.seq ?? ""}:${result?.seq ?? ""}`;
@@ -395,19 +395,19 @@ function ToolBlock({
     if (!open || loadedKey.current === detailKey) return;
     let live = true;
     const segs: { label: string; seq: number }[] = [];
-    if (use) segs.push({ label: "命令", seq: use.seq });
-    if (result) segs.push({ label: "输出" + (result.is_error ? " ✕" : " ✓"), seq: result.seq });
+    if (use) segs.push({ label: "명령", seq: use.seq });
+    if (result) segs.push({ label: "출력" + (result.is_error ? " ✕" : " ✓"), seq: result.seq });
     void Promise.all(
       segs.map((x) =>
         getDetail(x.seq)
-          .then((d) => d || "（空）")
-          .catch(() => "（加载失败）"),
+          .then((d) => d || "(비어 있음)")
+          .catch(() => "(로드 실패)"),
       ),
     ).then((parts) => {
       if (!live) return;
       setDetail(
         segs
-          .map((x, i) => `【${x.label}】\n${x.label === "命令" ? toolInputText(toolName, parts[i]) : parts[i]}`)
+          .map((x, i) => `【${x.label}】\n${x.label === "명령" ? toolInputText(toolName, parts[i]) : parts[i]}`)
           .join("\n\n"),
       );
       loadedKey.current = detailKey;
@@ -461,7 +461,7 @@ function ToolBlock({
   return (
     <section
       ref={targetRef}
-      aria-label={focused ? `定位的工具调用 #${use?.seq}` : undefined}
+      aria-label={focused ? `위치 지정된 도구 호출 #${use?.seq}` : undefined}
       className={focused ? styles.focusedTool : "text-xs"}
     >
       <button type="button" onClick={toggle} aria-expanded={open} className={styles.executionRow}>
@@ -476,7 +476,7 @@ function ToolBlock({
         {cmd && <span className="min-w-0 flex-1 truncate font-mono text-muted-foreground">{cmd}</span>}
         <span className={"ml-auto shrink-0 font-medium " + statusTone}>{statusText}</span>
       </button>
-      {open && <pre className={styles.codeDetails}>{detail ?? "加载中…"}</pre>}
+      {open && <pre className={styles.codeDetails}>{detail ?? "로딩 중…"}</pre>}
     </section>
   );
 }
@@ -538,10 +538,10 @@ function MessageBlock({
         {showWorker && <span className={chip(group.worker)}>{group.worker}</span>}
         <span className={"min-w-0 flex-1 truncate " + tone}>
           {body}
-          {hasThinking && <span className="ml-1 text-xs text-muted-foreground">· 含推理</span>}
+          {hasThinking && <span className="ml-1 text-xs text-muted-foreground">· 추론 포함</span>}
         </span>
       </button>
-      {open && <pre className={styles.codeDetails}>{detail ?? "加载中…"}</pre>}
+      {open && <pre className={styles.codeDetails}>{detail ?? "로딩 중…"}</pre>}
     </div>
   );
 }
@@ -611,7 +611,7 @@ function UserRow({
     <div ref={ref} className={styles.messageRow}>
       <div className={styles.messageLabel}>
         <Icon className="size-3" />
-        <span>{intent ? "INTENT / 任务指令" : "OPERATOR / 你"}</span>
+        <span>{intent ? "INTENT / 작업 지시" : "OPERATOR / 당신"}</span>
         <ActivityTime ts={step.ts} />
       </div>
       <div className={styles.userBody}>
@@ -656,7 +656,7 @@ function AnswerBlock({ step, getDetail }: { step: Activity; getDetail: (seq: num
     <div ref={ref} className={styles.answerRow}>
       <div className={styles.messageLabel}>
         <span className={styles.liveDot} />
-        <span>prtseek / {step.is_error ? "执行反馈" : "RESULT"}</span>
+        <span>prtseek / {step.is_error ? "실행 피드백" : "RESULT"}</span>
         <ActivityTime ts={step.ts} />
       </div>
       <div className={styles.answerBody + " " + (step.is_error ? "text-sm text-red-600 dark:text-red-400" : "")}>
@@ -777,7 +777,7 @@ export function Transcript({
       {live && (
         <div className="flex items-center gap-2 py-3 text-xs text-muted-foreground">
           <span className={styles.progressSignal} />
-          <span className="font-mono tracking-wider">RECEIVING / 实时接收中</span>
+          <span className="font-mono tracking-wider">RECEIVING / 실시간 수신 중</span>
         </div>
       )}
     </div>

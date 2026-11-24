@@ -20,7 +20,7 @@ var pythonModuleName = regexp.MustCompile(`^[A-Za-z_][A-Za-z_0-9]*(?:\.[A-Za-z_]
 func pythonModuleReferences(name, module, dir string, args, wrapperArgs []*syntax.Word, call *syntax.CallExpr, generated map[string]scriptReference, constants map[string]shellConstant) []scriptReference {
 	problem := func(message string) []scriptReference { return []scriptReference{{problem: message}} }
 	if !pythonModuleName.MatchString(module) {
-		return problem("Python 模块名称无法静态解析")
+		return problem("Python 모듈 이름을 정적으로 해석할 수 없음")
 	}
 	env := map[string]string{}
 	for _, key := range []string{"PATH", "PYTHONPATH", "PYTHONHOME", "PYTHONUSERBASE", "HOME", "PYTHONSAFEPATH"} {
@@ -48,7 +48,7 @@ func pythonModuleReferences(name, module, dir string, args, wrapperArgs []*synta
 			value, known = "", true
 		}
 		if !known {
-			return problem("Python 模块搜索路径包含未知环境展开")
+			return problem("Python 모듈 검색 경로에 알 수 없는 환경 확장이 있음")
 		}
 		env[assign.Name.Value] = value
 	}
@@ -62,10 +62,10 @@ func pythonModuleReferences(name, module, dir string, args, wrapperArgs []*synta
 		// environment when the child's environment is not modeled.
 		switch value {
 		case "sudo", "-i", "--ignore-environment", "-u", "--unset", "-c", "-p":
-			return problem("包装命令改变 Python 模块运行环境，无法确认源码入口")
+			return problem("래퍼 명령이 Python 모듈 실행 환경을 바꿔 소스 진입점을 확인할 수 없음")
 		}
 		if strings.HasPrefix(value, "--unset=") || filepath.Base(value) == "sudo" {
-			return problem("包装命令改变 Python 模块运行环境，无法确认源码入口")
+			return problem("래퍼 명령이 Python 모듈 실행 환경을 바꿔 소스 진입점을 확인할 수 없음")
 		}
 		key, value, assignment := strings.Cut(value, "=")
 		if assignment {
@@ -108,7 +108,7 @@ func pythonModuleReferences(name, module, dir string, args, wrapperArgs []*synta
 	ignoreEnv = ignoreEnv || isolated
 	safePath = safePath || isolated || (!ignoreEnv && env["PYTHONSAFEPATH"] != "")
 	if !safePath && dir == "" {
-		return problem("执行目录不确定，无法确认实际 Python 模块")
+		return problem("실행 디렉터리가 불확실해 실제 Python 모듈을 확인할 수 없음")
 	}
 	executable := name
 	if !strings.Contains(name, "/") {
@@ -116,14 +116,14 @@ func pythonModuleReferences(name, module, dir string, args, wrapperArgs []*synta
 			var err error
 			executable, err = exec.LookPath(name)
 			if err != nil {
-				return problem("无法定位 Python 解释器及模块源码")
+				return problem("Python 인터프리터와 모듈 소스를 찾을 수 없음")
 			}
 		} else {
 			executable = ""
 			for _, entry := range filepath.SplitList(env["PATH"]) {
 				if !filepath.IsAbs(entry) {
 					if dir == "" {
-						return problem("Python 解释器搜索路径依赖未知目录")
+						return problem("Python 인터프리터 검색 경로가 알 수 없는 디렉터리에 의존함")
 					}
 					entry = filepath.Join(dir, entry)
 				}
@@ -134,34 +134,34 @@ func pythonModuleReferences(name, module, dir string, args, wrapperArgs []*synta
 				}
 			}
 			if executable == "" {
-				return problem("无法定位 Python 解释器及模块源码")
+				return problem("Python 인터프리터와 모듈 소스를 찾을 수 없음")
 			}
 		}
 	} else if !filepath.IsAbs(executable) {
 		if dir == "" {
-			return problem("Python 解释器路径依赖未知目录")
+			return problem("Python 인터프리터 경로가 알 수 없는 디렉터리에 의존함")
 		}
 		executable = filepath.Join(dir, executable)
 	}
 	resolved, err := filepath.EvalSymlinks(executable)
 	if err != nil {
-		return problem("无法读取 Python 解释器路径")
+		return problem("Python 인터프리터 경로를 읽을 수 없음")
 	}
 	if !nativeInterpreterFile(resolved) {
-		return problem("Python 入口不是可确定的本机解释器，无法静态定位模块")
+		return problem("Python 진입점이 확정 가능한 로컬 인터프리터가 아니어서 모듈을 정적으로 찾을 수 없음")
 	}
 	version := pythonVersionName.FindStringSubmatch(filepath.Base(resolved))
 	if len(version) != 2 {
 		version = pythonVersionName.FindStringSubmatch(filepath.Base(executable))
 	}
 	if len(version) != 2 {
-		return problem("无法静态确定 Python 版本和模块目录")
+		return problem("Python 버전과 모듈 디렉터리를 정적으로 확정할 수 없음")
 	}
 	prefix := filepath.Dir(filepath.Dir(executable))
 	base := filepath.Dir(filepath.Dir(resolved))
 	library := filepath.Join(base, "lib", "python"+version[1])
 	if !ignoreEnv && (env["PYTHONHOME"] != "" || env["PYTHONUSERBASE"] != "") {
-		return problem("Python 自定义库目录未提供可确定的模块来源")
+		return problem("Python 사용자 정의 라이브러리 디렉터리가 확정 가능한 모듈 출처를 제공하지 않음")
 	}
 	roots := []string{}
 	seen := map[string]bool{}
@@ -182,7 +182,7 @@ func pythonModuleReferences(name, module, dir string, args, wrapperArgs []*synta
 			}
 			if !filepath.IsAbs(root) {
 				if dir == "" {
-					return problem("Python 模块搜索路径依赖未知目录")
+					return problem("Python 모듈 검색 경로가 알 수 없는 디렉터리에 의존함")
 				}
 				root = filepath.Join(dir, root)
 			}
@@ -255,7 +255,7 @@ func moduleEntryReferences(module string, roots []string, generated map[string]s
 				if i == len(parts)-1 {
 					main := filepath.Join(dir, "__main__.py")
 					if !exists(main) {
-						return nil, fmt.Errorf("Python 模块 %s 缺少可读取的 __main__.py", module)
+						return nil, fmt.Errorf("Python 모듈 %s 에 읽을 수 있는 __main__.py 가 없음", module)
 					}
 					refs = append(refs, reference(main))
 					return refs, nil
@@ -265,7 +265,7 @@ func moduleEntryReferences(module string, roots []string, generated map[string]s
 			source := filepath.Join(dir, part+".py")
 			if exists(source) {
 				if i != len(parts)-1 {
-					return nil, fmt.Errorf("Python 模块 %s 的父模块不是可读取的包", module)
+					return nil, fmt.Errorf("Python 모듈 %s 의 상위 모듈이 읽을 수 있는 패키지가 아님", module)
 				}
 				refs = append(refs, reference(source))
 				return refs, nil
@@ -273,7 +273,7 @@ func moduleEntryReferences(module string, roots []string, generated map[string]s
 			// A regular parent package shadows later search roots even when the
 			// requested child is absent; do not substitute an unrelated module.
 			if len(refs) > 0 {
-				return nil, fmt.Errorf("无法定位 Python 模块 %s 的源码", module)
+				return nil, fmt.Errorf("Python 모듈 %s 의 소스를 찾을 수 없음", module)
 			}
 			matched = false
 			break
@@ -282,7 +282,7 @@ func moduleEntryReferences(module string, roots []string, generated map[string]s
 			return refs, nil
 		}
 	}
-	return nil, fmt.Errorf("无法定位 Python 模块 %s 的源码", module)
+	return nil, fmt.Errorf("Python 모듈 %s 의 소스를 찾을 수 없음", module)
 }
 
 func nativeInterpreterFile(path string) bool {

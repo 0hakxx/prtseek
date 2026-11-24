@@ -34,7 +34,7 @@ export function PrtsBoot() {
       open
       className="prts-boot"
       style={{ "--prts-boot-duration": `${BOOT_DURATION_MS}ms` } as CSSProperties}
-      aria-label="prtseek 开机动画"
+      aria-label="prtseek 부팅 애니메이션"
       onAnimationEnd={(event) => {
         if (event.target === event.currentTarget) setVisible(false);
       }}
@@ -58,7 +58,7 @@ export function PrtsBoot() {
       </span>
       <span className="prts-boot-progress" aria-hidden="true" />
       <button type="button" onClick={() => setVisible(false)} className="prts-boot-skip">
-        跳过 / SKIP
+        건너뛰기 / SKIP
       </button>
     </dialog>
   );

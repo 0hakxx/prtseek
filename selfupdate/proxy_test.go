@@ -84,7 +84,7 @@ func TestClientRejectsUnsafeRedirect(t *testing.T) {
 		io.Copy(io.Discard, resp.Body)
 		resp.Body.Close()
 	}
-	if err == nil || !strings.Contains(err.Error(), "拒绝非 GitHub") {
+	if err == nil || !strings.Contains(err.Error(), "GitHub 가 아닌") {
 		t.Fatalf("unsafe redirect accepted: %v", err)
 	}
 }

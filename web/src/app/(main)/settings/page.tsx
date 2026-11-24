@@ -8,13 +8,13 @@ export default function SettingsPage() {
   const mode = useChatSendMode();
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6">
-      <h1 className="text-xl font-semibold">设置</h1>
+      <h1 className="text-xl font-semibold">설정</h1>
       <div className="flex items-center justify-between border p-5">
-        <span>界面主题</span>
+        <span>UI 테마</span>
         <ThemeSwitcher />
       </div>
       <div className="space-y-3 border p-5">
-        <Label>发送快捷键</Label>
+        <Label>전송 단축키</Label>
         <Select value={mode} onValueChange={(value) => setChatSendMode(value as ChatSendMode)}>
           <SelectTrigger>
             <SelectValue />

@@ -56,13 +56,13 @@ type toolpackHTTPDownloadError struct{ status int }
 type toolpackDownloadIdleError struct{ duration time.Duration }
 
 func (e *toolpackDownloadIdleError) Error() string {
-	return fmt.Sprintf("下载连续 %s 没有数据进展，已保留缓存", e.duration)
+	return fmt.Sprintf("다운로드가 %s 동안 연속으로 데이터 진전이 없어 캐시를 유지했습니다", e.duration)
 }
 func (e *toolpackDownloadIdleError) Timeout() bool   { return true }
 func (e *toolpackDownloadIdleError) Temporary() bool { return true }
 
 func (e *toolpackHTTPDownloadError) Error() string {
-	return fmt.Sprintf("下载源返回 HTTP %d，缓存已保留", e.status)
+	return fmt.Sprintf("다운로드 소스가 HTTP %d 를 반환해 캐시를 유지했습니다", e.status)
 }
 
 type toolpackDownloadIdentity struct {
@@ -83,11 +83,11 @@ type toolpackDownloadPart struct {
 func (m *toolpackManager) downloadResumable(ctx context.Context, a toolpackAsset, dest string) error {
 	digest, err := hex.DecodeString(a.SHA256)
 	if err != nil || len(digest) != sha256.Size || a.Size > 1<<30 || a.Size < 0 {
-		return errors.New("发布包校验信息无效")
+		return errors.New("릴리스 패키지 검증 정보가 유효하지 않습니다")
 	}
 	cache := filepath.Join(m.root, "cache", strings.ToLower(a.SHA256))
 	if !withinToolpackRoot(m.root, cache) {
-		return errors.New("下载缓存路径越界")
+		return errors.New("다운로드 캐시 경로가 범위를 벗어났습니다")
 	}
 	if err := os.MkdirAll(cache, 0700); err != nil {
 		return err
@@ -97,7 +97,7 @@ func (m *toolpackManager) downloadResumable(ctx context.Context, a toolpackAsset
 	if data, err := os.ReadFile(metadata); err == nil {
 		var saved toolpackDownloadIdentity
 		if json.Unmarshal(data, &saved) != nil || saved != identity {
-			return errors.New("下载缓存身份不符，请卸载工具缓存后重试")
+			return errors.New("다운로드 캐시 신원이 맞지 않습니다. 도구 캐시를 제거한 뒤 다시 시도하세요")
 		}
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return err
@@ -139,7 +139,7 @@ func (m *toolpackManager) downloadResumable(ctx context.Context, a toolpackAsset
 	}
 	if completeCached {
 		m.mu.Lock()
-		m.state.Stage = "完整下载缓存校验通过，准备解压"
+		m.state.Stage = "전체 다운로드 캐시 검증을 통과해 압축 해제를 준비함"
 		m.mu.Unlock()
 	}
 	if parallel {
@@ -220,7 +220,7 @@ func (m *toolpackManager) downloadResumable(ctx context.Context, a toolpackAsset
 		}
 		if size > 1<<30 {
 			out.Close()
-			return errors.New("发布包超过 1 GiB 限制")
+			return errors.New("릴리스 패키지가 1 GiB 제한을 초과합니다")
 		}
 	}
 	if err := out.Sync(); err != nil {
@@ -232,7 +232,7 @@ func (m *toolpackManager) downloadResumable(ctx context.Context, a toolpackAsset
 	}
 	if (a.Size > 0 && size != a.Size) || hex.EncodeToString(hash.Sum(nil)) != identity.SHA256 {
 		_ = os.RemoveAll(cache)
-		return errors.New("下载文件 SHA-256 校验失败，未安装；已丢弃损坏缓存，可重新安装")
+		return errors.New("다운로드 파일의 SHA-256 검증에 실패해 설치하지 않았습니다. 손상된 캐시는 버렸으니 다시 설치할 수 있습니다")
 	}
 	// Completed archives are transient; installed programs and templates remain.
 	_ = os.RemoveAll(cache)
@@ -250,7 +250,7 @@ func completeToolpackCache(asset toolpackAsset, path string) (int64, bool, error
 		return 0, false, err
 	}
 	if !info.Mode().IsRegular() || info.Size() > 1<<30 {
-		return 0, false, errors.New("下载缓存不是有效的普通文件")
+		return 0, false, errors.New("다운로드 캐시가 유효한 일반 파일이 아닙니다")
 	}
 	if asset.Size > 0 && info.Size() != asset.Size {
 		return info.Size(), false, nil
@@ -278,7 +278,7 @@ func (m *toolpackManager) setDownloadProgress(parts []toolpackDownloadPart, tota
 			return err
 		}
 		if !info.Mode().IsRegular() {
-			return errors.New("下载缓存不是普通文件")
+			return errors.New("다운로드 캐시가 일반 파일이 아닙니다")
 		}
 		if info.Size() > 1<<30 || (p.Length >= 0 && info.Size() > p.Length) {
 			if err := os.Truncate(p.Path, 0); err != nil {
@@ -384,7 +384,7 @@ func (m *toolpackManager) downloadPartAttempt(ctx context.Context, a toolpackAss
 			m.addDownloaded(-offset)
 			return io.ErrUnexpectedEOF
 		}
-		return errors.New("官方源拒绝续传范围；下载缓存与远端长度不符")
+		return errors.New("공식 소스가 이어받기 범위를 거부했습니다. 다운로드 캐시가 원격 길이와 맞지 않습니다")
 	}
 	if response.StatusCode == http.StatusOK {
 		if bounded {
@@ -400,7 +400,7 @@ func (m *toolpackManager) downloadPartAttempt(ctx context.Context, a toolpackAss
 	} else if response.StatusCode == http.StatusPartialContent {
 		start, end, total, err := parseToolpackContentRange(response.Header.Get("Content-Range"))
 		if err != nil || start != p.Start+offset || (a.Size > 0 && total != a.Size) || (bounded && end != p.Start+p.Length-1) || (response.ContentLength >= 0 && response.ContentLength != end-start+1) {
-			return errors.New("官方源返回的续传范围与请求不一致，未写入数据")
+			return errors.New("공식 소스가 반환한 이어받기 범위가 요청과 일치하지 않아 데이터를 쓰지 않았습니다")
 		}
 		if !bounded && p.Length < 0 {
 			p.Length = total
@@ -412,7 +412,7 @@ func (m *toolpackManager) downloadPartAttempt(ctx context.Context, a toolpackAss
 		return &toolpackHTTPDownloadError{status: response.StatusCode}
 	}
 	if response.ContentLength > 1<<30 {
-		return errors.New("发布包超过 1 GiB 限制")
+		return errors.New("릴리스 패키지가 1 GiB 제한을 초과합니다")
 	}
 	if _, err := f.Seek(offset, io.SeekStart); err != nil {
 		return err
@@ -423,7 +423,7 @@ func (m *toolpackManager) downloadPartAttempt(ctx context.Context, a toolpackAss
 		if n > 0 {
 			watchdog.Reset(idle)
 			if offset+int64(n) > 1<<30 || (p.Length >= 0 && offset+int64(n) > p.Length) {
-				return errors.New("下载响应超出预期大小")
+				return errors.New("다운로드 응답이 예상 크기를 초과했습니다")
 			}
 			written, writeErr := f.Write(buffer[:n])
 			offset += int64(written)

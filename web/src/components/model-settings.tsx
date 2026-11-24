@@ -53,7 +53,7 @@ export function ModelEditor({
     try {
       const result = await api.fetchLLMModels(format, baseUrl.trim(), key, advanced.proxy, id);
       if (!result.ok || !result.models?.length)
-        throw new Error(result.error || "接口没有返回模型列表，请手动填写模型 ID。");
+        throw new Error(result.error || "인터페이스가 모델 목록을 반환하지 않았습니다. 모델 ID 를 직접 입력하세요.");
       const complete = [...new Set(result.models)].sort((a, b) => a.localeCompare(b));
       setModels(complete);
       if (!model) setModel(result.models[0]);
@@ -67,15 +67,15 @@ export function ModelEditor({
     setError("");
     setTested("");
     if (!model.trim() || (!key.trim() && !profile?.api_key_hint)) {
-      setError("请填写 API Key 和模型。");
+      setError("API Key 와 모델을 입력하세요.");
       return;
     }
     setBusy("save");
     try {
       const result = await api.testLLM(format, model.trim(), baseUrl.trim(), key, advanced.proxy, advanced.thinking_type, advanced.reasoning_effort, id, advanced.streaming, advanced.session_header_key, true, { max_tokens: advanced.max_tokens, max_tokens_field: advanced.max_tokens_field });
-      if (!result.ok) throw new Error(result.error || "模型未返回有效回复");
-      if (!result.tools_verified) throw new Error("工具调用能力尚未通过验证。");
-      setTested(`连接与工具往返已验证 · ${result.latency_ms ?? "—"} ms`);
+      if (!result.ok) throw new Error(result.error || "모델이 유효한 응답을 반환하지 않았습니다");
+      if (!result.tools_verified) throw new Error("도구 호출 능력이 아직 검증되지 않았습니다.");
+      setTested(`연결과 도구 왕복이 검증됨 · ${result.latency_ms ?? "—"} ms`);
       const saved = await api.saveLLMProfile({
         ...(profile ? { ...profile, id } : {}),
         name: name.trim() || model.trim(),
@@ -87,7 +87,7 @@ export function ModelEditor({
         pool_exclude: profile?.pool_exclude ?? true,
       });
       if (makeDefault || initial) await api.activateLLMProfile(String(saved.id));
-      toast.success("模型配置已验证并保存");
+      toast.success("모델 설정을 검증하고 저장했습니다");
       window.dispatchEvent(new Event("prtseek-models-updated"));
       onSaved();
     } catch (e) {
@@ -100,7 +100,7 @@ export function ModelEditor({
   return (
     <div className="space-y-4">
       <div className="space-y-1.5">
-        <Label htmlFor="model-format">接口类型</Label>
+        <Label htmlFor="model-format">인터페이스 유형</Label>
         <NativeSelect
           id="model-format"
           className="w-full"
@@ -108,9 +108,9 @@ export function ModelEditor({
           onChange={(e) => setFormat(e.target.value as LLMProfile["format"])}
           disabled={!!busy}
         >
-          <option value="openai">OpenAI 兼容接口</option>
-          <option value="openai-responses">Responses 接口</option>
-          <option value="anthropic">Anthropic 接口</option>
+          <option value="openai">OpenAI 호환 인터페이스</option>
+          <option value="openai-responses">Responses 인터페이스</option>
+          <option value="anthropic">Anthropic 인터페이스</option>
         </NativeSelect>
       </div>
       <div className="space-y-1.5">
@@ -129,7 +129,7 @@ export function ModelEditor({
         <Input
           id="model-key"
           type="password"
-          placeholder={profile?.api_key_hint ? `已保存 ${profile.api_key_hint}，留空保持` : "输入服务商提供的密钥"}
+          placeholder={profile?.api_key_hint ? `${profile.api_key_hint} 저장됨, 비우면 유지` : "서비스 제공자가 준 키를 입력"}
           value={key}
           onChange={(e) => setKey(e.target.value)}
           disabled={!!busy}
@@ -137,11 +137,11 @@ export function ModelEditor({
         />
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="model-id">模型</Label>
+        <Label htmlFor="model-id">모델</Label>
         <div className="flex flex-col gap-2 sm:flex-row">
           <Input
             id="model-id"
-            placeholder="选择或输入模型 ID"
+            placeholder="모델 ID 를 선택하거나 입력"
             value={model}
             onChange={(e) => setModel(e.target.value)}
             disabled={!!busy}
@@ -152,16 +152,16 @@ export function ModelEditor({
             onClick={loadModels}
             disabled={!!busy || (!key && !profile?.api_key_hint)}
           >
-            {busy === "models" ? "获取中…" : "获取模型"}
+            {busy === "models" ? "가져오는 중…" : "모델 가져오기"}
           </Button>
         </div>
         {models.length > 0 && (
           <Popover open={modelsOpen} onOpenChange={setModelsOpen}>
             <PopoverTrigger asChild>
               <Button type="button" variant="outline" className="w-full justify-between font-normal">
-                <span>浏览全部模型</span>
+                <span>모든 모델 보기</span>
                 <span className="flex items-center gap-2 text-muted-foreground">
-                  {models.length} 个
+                  {models.length} 개
                   <ChevronDown className="size-4" />
                 </span>
               </Button>
@@ -170,14 +170,14 @@ export function ModelEditor({
               <div className="flex items-center gap-2 border-b px-3">
                 <Search className="size-4 shrink-0 text-muted-foreground" />
                 <Input
-                  aria-label="搜索模型"
+                  aria-label="모델 검색"
                   value={modelQuery}
                   onChange={(event) => setModelQuery(event.target.value)}
-                  placeholder="按模型 ID 搜索"
+                  placeholder="모델 ID 로 검색"
                   className="border-0 bg-transparent px-0 focus-visible:ring-0"
                 />
               </div>
-              <div role="listbox" aria-label="完整模型列表" className="max-h-80 overflow-y-auto p-1">
+              <div role="listbox" aria-label="전체 모델 목록" className="max-h-80 overflow-y-auto p-1">
                 {models
                   .filter((item) => item.toLowerCase().includes(modelQuery.trim().toLowerCase()))
                   .map((item) => (
@@ -197,7 +197,7 @@ export function ModelEditor({
                     </button>
                   ))}
                 {models.every((item) => !item.toLowerCase().includes(modelQuery.trim().toLowerCase())) && (
-                  <p className="p-4 text-center text-sm text-muted-foreground">没有匹配的模型</p>
+                  <p className="p-4 text-center text-sm text-muted-foreground">일치하는 모델이 없습니다</p>
                 )}
               </div>
             </PopoverContent>
@@ -205,15 +205,15 @@ export function ModelEditor({
         )}
         <p className="text-xs text-muted-foreground">
           {models.length > 0
-            ? `已读取全部 ${models.length} 个模型；可搜索、选择或直接填写模型 ID。`
-            : "服务不支持模型列表时，可以直接填写模型 ID。"}
+            ? `전체 ${models.length} 개 모델을 읽었습니다. 검색, 선택하거나 모델 ID 를 직접 입력할 수 있습니다.`
+            : "서비스가 모델 목록을 지원하지 않으면 모델 ID 를 직접 입력할 수 있습니다."}
         </p>
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="model-name">配置名称（可选）</Label>
+        <Label htmlFor="model-name">설정 이름(선택)</Label>
         <Input
           id="model-name"
-          placeholder="默认使用模型名称"
+          placeholder="기본적으로 모델 이름 사용"
           value={name}
           onChange={(e) => setName(e.target.value)}
           disabled={!!busy}
@@ -227,24 +227,24 @@ export function ModelEditor({
             onChange={(e) => setMakeDefault(e.target.checked)}
             disabled={!!busy}
           />
-          设为默认模型
+          기본 모델로 설정
         </label>
       )}
       <details className="rounded-md border p-3">
-        <summary className="cursor-pointer text-sm">高级连接与模型参数</summary>
+        <summary className="cursor-pointer text-sm">고급 연결과 모델 파라미터</summary>
         <div className="mt-3 space-y-3">
-          <p className="text-xs text-muted-foreground">未修改的参数会保留。保存前验证真实工具调用和结果回传。</p>
-          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={advanced.streaming} disabled={!!busy} onChange={(e) => setAdvanced({ ...advanced, streaming: e.target.checked })} />使用流式响应</label>
-          <div className="space-y-1"><Label htmlFor="model-proxy">连接代理</Label><Input id="model-proxy" value={advanced.proxy} disabled={!!busy} placeholder="http://127.0.0.1:7890" onChange={(e) => setAdvanced({ ...advanced, proxy: e.target.value })} /></div>
-          <div className="space-y-1"><Label htmlFor="model-session-header">自定义会话头名称</Label><Input id="model-session-header" value={advanced.session_header_key} disabled={!!busy} onChange={(e) => setAdvanced({ ...advanced, session_header_key: e.target.value })} /></div>
-          <div className="space-y-1"><Label htmlFor="model-effort">默认思考强度</Label><Input id="model-effort" value={advanced.reasoning_effort} disabled={!!busy} placeholder="留空使用接口默认值" onChange={(e) => setAdvanced({ ...advanced, reasoning_effort: e.target.value })} /></div>
-          <div className="space-y-1"><Label htmlFor="model-thinking">思考模式</Label><NativeSelect id="model-thinking" value={advanced.thinking_type} disabled={!!busy} onChange={(e) => setAdvanced({ ...advanced, thinking_type: e.target.value })}><option value="">接口默认</option><option value="enabled">开启</option><option value="disabled">关闭</option></NativeSelect></div>
+          <p className="text-xs text-muted-foreground">수정하지 않은 파라미터는 유지됩니다. 저장 전에 실제 도구 호출과 결과 전달을 검증합니다.</p>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={advanced.streaming} disabled={!!busy} onChange={(e) => setAdvanced({ ...advanced, streaming: e.target.checked })} />스트리밍 응답 사용</label>
+          <div className="space-y-1"><Label htmlFor="model-proxy">연결 프록시</Label><Input id="model-proxy" value={advanced.proxy} disabled={!!busy} placeholder="http://127.0.0.1:7890" onChange={(e) => setAdvanced({ ...advanced, proxy: e.target.value })} /></div>
+          <div className="space-y-1"><Label htmlFor="model-session-header">사용자 정의 대화 헤더 이름</Label><Input id="model-session-header" value={advanced.session_header_key} disabled={!!busy} onChange={(e) => setAdvanced({ ...advanced, session_header_key: e.target.value })} /></div>
+          <div className="space-y-1"><Label htmlFor="model-effort">기본 사고 강도</Label><Input id="model-effort" value={advanced.reasoning_effort} disabled={!!busy} placeholder="비우면 인터페이스 기본값 사용" onChange={(e) => setAdvanced({ ...advanced, reasoning_effort: e.target.value })} /></div>
+          <div className="space-y-1"><Label htmlFor="model-thinking">사고 모드</Label><NativeSelect id="model-thinking" value={advanced.thinking_type} disabled={!!busy} onChange={(e) => setAdvanced({ ...advanced, thinking_type: e.target.value })}><option value="">인터페이스 기본</option><option value="enabled">켬</option><option value="disabled">끔</option></NativeSelect></div>
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1"><Label htmlFor="model-context">上下文容量（K Token）</Label><Input id="model-context" type="number" min={0} value={advanced.context_window_k} disabled={!!busy} onChange={(e) => setAdvanced({ ...advanced, context_window_k: Math.max(0, Number(e.target.value)) })} /></div>
-            <div className="space-y-1"><Label htmlFor="model-output">输出上限（Token）</Label><Input id="model-output" type="number" min={0} value={advanced.max_tokens} disabled={!!busy} onChange={(e) => setAdvanced({ ...advanced, max_tokens: Math.max(0, Number(e.target.value)) })} /></div>
+            <div className="space-y-1"><Label htmlFor="model-context">컨텍스트 용량(K Token)</Label><Input id="model-context" type="number" min={0} value={advanced.context_window_k} disabled={!!busy} onChange={(e) => setAdvanced({ ...advanced, context_window_k: Math.max(0, Number(e.target.value)) })} /></div>
+            <div className="space-y-1"><Label htmlFor="model-output">출력 상한(Token)</Label><Input id="model-output" type="number" min={0} value={advanced.max_tokens} disabled={!!busy} onChange={(e) => setAdvanced({ ...advanced, max_tokens: Math.max(0, Number(e.target.value)) })} /></div>
           </div>
-          <p className="text-xs text-muted-foreground">容量 0 使用应用默认值；输出上限 0 使用接口默认值。</p>
-          <div className="space-y-1"><Label htmlFor="model-output-field">输出上限字段</Label><NativeSelect id="model-output-field" value={advanced.max_tokens_field} disabled={!!busy} onChange={(e) => setAdvanced({ ...advanced, max_tokens_field: e.target.value })}><option value="">max_tokens（默认）</option><option value="max_completion_tokens">max_completion_tokens</option></NativeSelect></div>
+          <p className="text-xs text-muted-foreground">용량 0 은 앱 기본값을, 출력 상한 0 은 인터페이스 기본값을 사용합니다.</p>
+          <div className="space-y-1"><Label htmlFor="model-output-field">출력 상한 필드</Label><NativeSelect id="model-output-field" value={advanced.max_tokens_field} disabled={!!busy} onChange={(e) => setAdvanced({ ...advanced, max_tokens_field: e.target.value })}><option value="">max_tokens(기본)</option><option value="max_completion_tokens">max_completion_tokens</option></NativeSelect></div>
         </div>
       </details>
       {error && (
@@ -258,7 +258,7 @@ export function ModelEditor({
         </p>
       )}
       <Button className="w-full" onClick={save} disabled={!!busy}>
-        {busy === "save" ? "正在测试并保存…" : "测试并保存"}
+        {busy === "save" ? "테스트하고 저장하는 중…" : "테스트하고 저장"}
       </Button>
     </div>
   );
@@ -292,7 +292,7 @@ export function ModelSettings() {
     }
   }
   async function remove(p: LLMProfile) {
-    if (!window.confirm(`删除模型配置“${p.name}”？历史会话不会被删除。`)) return;
+    if (!window.confirm(`모델 설정 “${p.name}” 을 삭제하시겠습니까? 과거 대화는 삭제되지 않습니다.`)) return;
     try {
       await api.deleteLLMProfile(String(p.id));
       await load();
@@ -305,12 +305,12 @@ export function ModelSettings() {
     <section className="space-y-5">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">模型设置</h1>
-          <p className="mt-1 text-sm text-muted-foreground">保存连接信息，在每段对话下方选择模型和思考强度。</p>
+          <h1 className="text-2xl font-semibold">모델 설정</h1>
+          <p className="mt-1 text-sm text-muted-foreground">연결 정보를 저장하고, 각 대화 아래에서 모델과 사고 강도를 선택하세요.</p>
         </div>
         <Button onClick={() => setEditor("new")}>
           <Plus className="size-4" />
-          添加模型
+          모델 추가
         </Button>
       </div>
       {error && (
@@ -319,11 +319,11 @@ export function ModelSettings() {
         </p>
       )}
       {loading ? (
-        <p className="text-sm text-muted-foreground">正在读取模型…</p>
+        <p className="text-sm text-muted-foreground">모델을 읽는 중…</p>
       ) : profiles.length === 0 ? (
         <div className="rounded-xl border border-dashed p-8 text-center">
-          <p className="mb-4 text-muted-foreground">还没有模型配置，添加后即可开始对话。</p>
-          <Button onClick={() => setEditor("new")}>配置第一个模型</Button>
+          <p className="mb-4 text-muted-foreground">아직 모델 설정이 없습니다. 추가하면 대화를 시작할 수 있습니다.</p>
+          <Button onClick={() => setEditor("new")}>첫 모델 설정하기</Button>
         </div>
       ) : (
         <div className="space-y-3">
@@ -332,7 +332,7 @@ export function ModelSettings() {
               <div className="min-w-0">
                 <div className="flex items-center gap-2 font-medium">
                   {p.name}
-                  {p.is_default && <span className="rounded bg-primary/10 px-2 py-0.5 text-xs text-primary">默认</span>}
+                  {p.is_default && <span className="rounded bg-primary/10 px-2 py-0.5 text-xs text-primary">기본</span>}
                 </div>
                 <p className="mt-1 break-all text-sm text-muted-foreground">
                   {p.model} · {p.format}
@@ -342,14 +342,14 @@ export function ModelSettings() {
                 {!p.is_default && (
                   <Button variant="ghost" size="sm" onClick={() => activate(p)}>
                     <Check className="size-4" />
-                    设为默认
+                    기본으로 설정
                   </Button>
                 )}
                 <Button variant="ghost" size="sm" onClick={() => setEditor(p)}>
                   <Settings2 className="size-4" />
-                  编辑
+                  편집
                 </Button>
-                <Button variant="ghost" size="icon" aria-label={`删除 ${p.name}`} onClick={() => remove(p)}>
+                <Button variant="ghost" size="icon" aria-label={`${p.name} 삭제`} onClick={() => remove(p)}>
                   <Trash2 className="size-4" />
                 </Button>
               </div>
@@ -365,7 +365,7 @@ export function ModelSettings() {
       >
         <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editor === "new" ? "添加模型" : "编辑模型"}</DialogTitle>
+            <DialogTitle>{editor === "new" ? "모델 추가" : "모델 편집"}</DialogTitle>
           </DialogHeader>
           {editor && (
             <ModelEditor

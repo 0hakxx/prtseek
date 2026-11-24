@@ -158,7 +158,7 @@ func TestFindingCaseToolMigrationPreservesBindings(t *testing.T) {
 func TestFindingCaseAPIPaginationAndTools(t *testing.T) {
 	s, task, ids := testCaseServer(t)
 	ctx := context.Background()
-	a := findingCaseRequest{TaskID: json.RawMessage(fmt.Sprint(task)), Title: "订单越权", Reason: "same check"}
+	a := findingCaseRequest{TaskID: json.RawMessage(fmt.Sprint(task)), Title: "주문 권한 초과", Reason: "same check"}
 	for _, id := range ids {
 		a.IDs = append(a.IDs, json.RawMessage(fmt.Sprint(id)))
 	}
@@ -216,12 +216,12 @@ func TestFindingCaseAPIPaginationAndTools(t *testing.T) {
 func TestFindingCaseConsolidatedExportPreservesScope(t *testing.T) {
 	s, task, ids := testCaseServer(t)
 	ctx := context.Background()
-	cid, err := s.m.pg.MergeFindingCase(ctx, task, ids, "订单越权", "same", "reporter")
+	cid, err := s.m.pg.MergeFindingCase(ctx, task, ids, "주문 권한 초과", "same", "reporter")
 	if err != nil {
 		t.Fatal(err)
 	}
 	c, _ := s.m.pg.GetFindingCase(cid)
-	if err := s.m.pg.UpdateFindingCaseReport(ctx, cid, c.Version, "订单越权", "complete report", "high", "verified"); err != nil {
+	if err := s.m.pg.UpdateFindingCaseReport(ctx, cid, c.Version, "주문 권한 초과", "complete report", "high", "verified"); err != nil {
 		t.Fatal(err)
 	}
 	fs, err := s.m.pg.ListFindingsForExport(db.FindingFilter{}, ids[:1])
@@ -247,7 +247,7 @@ func TestFindingCaseConsolidatedExportPreservesScope(t *testing.T) {
 		t.Fatal(err)
 	}
 	out, err = s.consolidateFindingCaseExport(expanded, plan, false)
-	if err != nil || !strings.Contains(out[0].Report, "已过期") || !strings.Contains(out[0].Evidence, "proof low") {
+	if err != nil || !strings.Contains(out[0].Report, "만료") || !strings.Contains(out[0].Evidence, "proof low") {
 		t.Fatalf("pending export omitted evidence %+v %v", out, err)
 	}
 }

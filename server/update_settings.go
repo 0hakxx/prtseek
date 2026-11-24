@@ -27,11 +27,11 @@ func (s *Server) loadUpdateSettings() (updateSettings, error) {
 	cfg := updateSettings{}
 	raw, ok, err := s.m.pg.GetSetting(updateSettingsKey)
 	if err != nil {
-		return cfg, fmt.Errorf("读取更新网络设置失败: %w", err)
+		return cfg, fmt.Errorf("업데이트 네트워크 설정 읽기 실패: %w", err)
 	}
 	if ok {
 		if err := json.Unmarshal([]byte(raw), &cfg); err != nil {
-			return cfg, fmt.Errorf("更新网络设置格式无效")
+			return cfg, fmt.Errorf("업데이트 네트워크 설정 형식이 유효하지 않습니다")
 		}
 	}
 	if err := cfg.validate(); err != nil {
@@ -52,7 +52,7 @@ func (s *Server) getUpdateSettings(w http.ResponseWriter, r *http.Request) {
 func (s *Server) putUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	var cfg updateSettings
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8192)).Decode(&cfg); err != nil {
-		writeErr(w, 400, "更新网络设置格式无效")
+		writeErr(w, 400, "업데이트 네트워크 설정 형식이 유효하지 않습니다")
 		return
 	}
 	if err := cfg.validate(); err != nil {
@@ -65,7 +65,7 @@ func (s *Server) putUpdateSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.m.pg.SetSettingContext(r.Context(), updateSettingsKey, string(raw)); err != nil {
-		writeErr(w, 500, "保存更新网络设置失败")
+		writeErr(w, 500, "업데이트 네트워크 설정 저장 실패")
 		return
 	}
 	writeJSON(w, 200, cfg)

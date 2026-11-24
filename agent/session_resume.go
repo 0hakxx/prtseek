@@ -15,7 +15,7 @@ type SessionResumeError struct {
 }
 
 func (e *SessionResumeError) Error() string {
-	return fmt.Sprintf("会话 %q 的历史记录读取失败；本轮已停止，未调用模型或执行工具。请检查历史文件后再继续。", e.SessionID)
+	return fmt.Sprintf("대화 %q 의 기록을 읽지 못해 이번 턴을 중지했으며, 모델 호출이나 도구 실행은 하지 않았습니다. 기록 파일을 확인한 뒤 계속하세요.", e.SessionID)
 }
 
 func (e *SessionResumeError) Unwrap() error { return e.Cause }

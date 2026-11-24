@@ -1,5 +1,5 @@
 {
-  "_comment": "可选配置。无需创建即可启动；SQLite 自动初始化。相对路径以启动工作目录为基准。",
+  "_comment": "선택적 설정. 만들지 않아도 시작할 수 있으며 SQLite 는 자동으로 초기화된다. 상대 경로는 시작 작업 디렉터리를 기준으로 한다.",
   "database": { "path": "data/prtseek.db" },
   "skill_dir": "skills"
 }

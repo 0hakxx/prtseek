@@ -266,10 +266,10 @@ func (sc *Scheduler) fireTaskSchedulesAt(now time.Time) {
 				}
 			}
 			_, err := sc.s.applyTaskControlWithCause(t, action, agent.AbortPausedBySchedule)
-			message := "计划窗口"
+			message := "예약 시간대"
 			if err != nil {
 				message = err.Error()
-				errors = append(errors, fmt.Sprintf("任务 #%d: %s", id, message))
+				errors = append(errors, fmt.Sprintf("작업 #%d: %s", id, message))
 			}
 			_ = sc.pg.RecordScheduleHistory(item.ID, id, action, err == nil, message)
 		}

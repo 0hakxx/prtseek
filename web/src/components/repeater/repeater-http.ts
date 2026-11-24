@@ -97,11 +97,11 @@ export function requestFromTraffic(
 ): RepeaterInitial {
   const firstLine = /^[^\r\n]+(?:\r?\n|$)/.exec(raw);
   if (!firstLine || !/^[A-Z]+\s+\S+\s+HTTP\/\d(?:\.\d)?\r?\n?$/i.test(firstLine[0])) {
-    throw new Error("请求报文不完整，无法送入请求重发");
+    throw new Error("요청 패킷이 불완전해 요청 재전송에 넣을 수 없습니다");
   }
   const request = splitRequestText(raw.slice(firstLine[0].length));
   if (/…\[truncated\] @blob sha256:[a-f0-9]{64}/.test(request.body)) {
-    throw new Error("请求正文为截断预览，请下载完整正文后再导入");
+    throw new Error("요청 본문이 잘린 미리보기입니다. 전체 본문을 다운로드한 뒤 가져오세요");
   }
   let host = exchange.host;
   try {
@@ -155,17 +155,17 @@ export function parseRawRequest(
   const newline = text.indexOf("\n");
   const line = (newline < 0 ? text : text.slice(0, newline)).trim();
   const match = /^([A-Za-z]+)\s+(\S+)\s+(HTTP\/(?:1\.[01]|2(?:\.0)?))$/.exec(line);
-  if (!match) throw new Error("请求首行应为：POST /path HTTP/1.1");
+  if (!match) throw new Error("요청 첫 줄은 다음과 같아야 합니다: POST /path HTTP/1.1");
   const parts = splitRequestText(newline < 0 ? "" : text.slice(newline + 1));
   let url: URL;
   if (/^https?:\/\//i.test(match[2])) url = new URL(match[2]);
   else {
-    if (!match[2].startsWith("/")) throw new Error("请求路径必须以 / 开头，或填写完整 http/https URL");
+    if (!match[2].startsWith("/")) throw new Error("요청 경로는 / 로 시작하거나 완전한 http/https URL 이어야 합니다");
     const origin = connectionOrigin(targetOrigin) || connectionOrigin(`https://${getHostHeader(parts.headersText)}`);
-    if (!origin) throw new Error("请填写 Host 请求头或设置发送目标");
+    if (!origin) throw new Error("Host 요청 헤더를 입력하거나 전송 대상을 설정하세요");
     url = new URL(origin + match[2]);
   }
-  if (url.hash) throw new Error("请求路径不能包含 URL 片段，请使用 %23 表示 #");
+  if (url.hash) throw new Error("요청 경로에 URL 프래그먼트를 포함할 수 없습니다. # 은 %23 으로 표기하세요");
   return {
     ...parts,
     method: match[1].toUpperCase(),

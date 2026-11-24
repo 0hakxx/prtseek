@@ -28,7 +28,7 @@ func (s *Server) initPersonalSettings() error {
 		return err
 	}
 	_, err := s.m.pg.Exec(`INSERT INTO agents(key,name,description,role,builtin,enabled,max_turns,run_seconds)
-	 VALUES('personal','个人助手','在当前会话直接处理工作，需要持续执行时使用转后台按钮','assistant',true,true,40,900)
+	 VALUES('personal','개인 도우미','현재 대화에서 작업을 직접 처리하며, 지속 실행이 필요하면 백그라운드 전환 버튼을 사용한다','assistant',true,true,40,900)
 	 ON CONFLICT(key) DO NOTHING`)
 	if err != nil {
 		return err
@@ -100,14 +100,14 @@ func (s *Server) personalOnboarding(w http.ResponseWriter, r *http.Request) {
 		valid := func(v string) bool { return v == "pending" || v == "skipped" || v == "completed" }
 		if req.Model != nil {
 			if !valid(*req.Model) {
-				writeErr(w, 400, "无效的模型引导状态")
+				writeErr(w, 400, "유효하지 않은 모델 안내 상태")
 				return
 			}
 			state.Model = *req.Model
 		}
 		if req.Tools != nil {
 			if !valid(*req.Tools) {
-				writeErr(w, 400, "无效的工具引导状态")
+				writeErr(w, 400, "유효하지 않은 도구 안내 상태")
 				return
 			}
 			state.Tools = *req.Tools
@@ -178,7 +178,7 @@ func (s *Server) personalModelCapabilities(w http.ResponseWriter, r *http.Reques
 	cfg, ok := s.loadProfileConfig(id)
 	if !ok {
 		if r.Method == http.MethodPost {
-			writeErr(w, 400, "请先保存可用的模型配置")
+			writeErr(w, 400, "먼저 사용 가능한 모델 설정을 저장하세요")
 			return
 		}
 		writeJSON(w, 200, map[string]any{"reasoning_efforts": []string{}, "verified": false, "source": "unknown"})
@@ -188,14 +188,14 @@ func (s *Server) personalModelCapabilities(w http.ResponseWriter, r *http.Reques
 	verified := false
 	if r.Method == http.MethodPost {
 		if !validEffort(effort) {
-			writeErr(w, 400, "无效的思考强度")
+			writeErr(w, 400, "유효하지 않은 사고 강도")
 			return
 		}
 		if effort != "" {
 			cfg.ReasoningEffort = effort
 		}
 		if _, _, err := agent.TestConnection(r.Context(), cfg); err != nil {
-			writeErr(w, 400, "该模型配置未通过此强度的请求验证："+redactPersonalError(err, cfg.APIKey))
+			writeErr(w, 400, "이 모델 설정이 이 강도의 요청 검증을 통과하지 못했습니다: "+redactPersonalError(err, cfg.APIKey))
 			return
 		}
 		if err := s.m.pg.SetSetting(capabilityKey(id, cfg, effort), "true"); err != nil {
@@ -217,21 +217,21 @@ func redactPersonalError(err error, key string) string {
 
 func (s *Server) validatePersonalEffort(c *db.Conversation, effort string) error {
 	if !validEffort(effort) {
-		return fmt.Errorf("无效的思考强度")
+		return fmt.Errorf("유효하지 않은 사고 강도")
 	}
 	if effort == "" {
 		return nil
 	}
 	cfg, id, ok := s.personalProfileConfig(c)
 	if !ok {
-		return fmt.Errorf("请先保存可用的模型配置")
+		return fmt.Errorf("먼저 사용 가능한 모델 설정을 저장하세요")
 	}
 	verified, _, err := s.m.pg.GetSetting(capabilityKey(id, cfg, effort))
 	if err != nil {
 		return err
 	}
 	if verified != "true" {
-		return fmt.Errorf("请先验证此模型配置的思考强度，再保存选择")
+		return fmt.Errorf("먼저 이 모델 설정의 사고 강도를 검증한 뒤 선택을 저장하세요")
 	}
 	return nil
 }
@@ -310,10 +310,10 @@ func (s *Server) personalChatAgent(c *db.Conversation) *agent.ChatAgent {
 
 func inferPersonalLanguage(message, previous string) string {
 	low := strings.ToLower(message)
-	if strings.Contains(low, "用英文") || strings.Contains(low, "reply in english") || strings.Contains(low, "respond in english") {
+	if strings.Contains(low, "用英文") || strings.Contains(low, "영어로") || strings.Contains(low, "reply in english") || strings.Contains(low, "respond in english") {
 		return "en"
 	}
-	if strings.Contains(low, "用中文") || strings.Contains(low, "reply in chinese") || strings.Contains(low, "respond in chinese") {
+	if strings.Contains(low, "用中文") || strings.Contains(low, "중국어로") || strings.Contains(low, "reply in chinese") || strings.Contains(low, "respond in chinese") {
 		return "zh"
 	}
 	if previous != "" {
@@ -379,7 +379,7 @@ func personalConnectionBinding(cfg agent.Config) string {
 func (s *Server) personalBackgroundSnapshot(c *db.Conversation) (json.RawMessage, error) {
 	cfg, id, ok := s.personalProfileConfig(c)
 	if !ok || id == 0 {
-		return nil, fmt.Errorf("请先保存并选择可用的模型配置")
+		return nil, fmt.Errorf("먼저 사용 가능한 모델 설정을 저장하고 선택하세요")
 	}
 	p := s.personalConversationSettings(c.ID)
 	if err := s.validatePersonalEffort(c, p.ReasoningEffort); err != nil {
@@ -394,10 +394,10 @@ func (s *Server) personalApplyBackgroundSettings(t *Task, run *db.PersonalBackgr
 		return err
 	}
 	if snap.ProfileID <= 0 {
-		return fmt.Errorf("后台任务缺少模型快照")
+		return fmt.Errorf("백그라운드 작업에 모델 스냅샷이 없습니다")
 	}
 	if _, ok := s.loadProfileConfig(snap.ProfileID); !ok {
-		return fmt.Errorf("后台任务的模型配置不可用")
+		return fmt.Errorf("백그라운드 작업의 모델 설정을 사용할 수 없습니다")
 	}
 	return nil
 }
@@ -420,13 +420,13 @@ func (s *Server) personalTaskConfig(taskID string) (agent.Config, bool, error) {
 	}
 	cfg, ok := s.loadProfileConfig(snap.ProfileID)
 	if !ok {
-		return cfg, true, fmt.Errorf("后台任务模型已删除或不可用，请暂停后重新配置")
+		return cfg, true, fmt.Errorf("백그라운드 작업 모델이 삭제되었거나 사용할 수 없습니다. 일시 중지한 뒤 다시 설정하세요")
 	}
 	if snap.CredentialBinding == "" || snap.CredentialBinding != personalCredentialBinding(cfg) {
-		return agent.Config{}, true, fmt.Errorf("后台任务的模型凭据或服务地址已改变，请暂停并重新选择模型后继续")
+		return agent.Config{}, true, fmt.Errorf("백그라운드 작업의 모델 자격 증명이나 서비스 주소가 바뀌었습니다. 일시 중지한 뒤 모델을 다시 선택하고 계속하세요")
 	}
 	if snap.Version >= 4 && snap.ConnectionBinding != personalConnectionBinding(cfg) {
-		return agent.Config{}, true, fmt.Errorf("后台任务连接参数已改变，请暂停并重新选择模型后继续")
+		return agent.Config{}, true, fmt.Errorf("백그라운드 작업 연결 파라미터가 바뀌었습니다. 일시 중지한 뒤 모델을 다시 선택하고 계속하세요")
 	}
 	if snap.Version < 4 {
 		cfg.Proxy, cfg.SessionHeaderKey = "", ""

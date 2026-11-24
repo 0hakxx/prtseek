@@ -80,41 +80,41 @@ func scanSchedule(sc interface{ Scan(...any) error }) (*TaskSchedule, error) {
 func normalizeScheduleInput(in TaskScheduleInput) (TaskScheduleInput, error) {
 	in.Name = strings.TrimSpace(in.Name)
 	if in.Name == "" {
-		return in, fmt.Errorf("计划名称不能为空")
+		return in, fmt.Errorf("예약 이름은 비워 둘 수 없습니다")
 	}
 	if in.TimezoneMode == "" {
 		in.TimezoneMode = "beijing"
 	}
 	if in.TimezoneMode != "beijing" && in.TimezoneMode != "system" {
-		return in, fmt.Errorf("时区必须选择北京时间或系统当前时区")
+		return in, fmt.Errorf("시간대는 베이징 시간 또는 시스템 현재 시간대 중에서 골라야 합니다")
 	}
 	if in.ScheduleType != "once" && in.ScheduleType != "weekly" {
-		return in, fmt.Errorf("规则必须选择一次性或按周")
+		return in, fmt.Errorf("규칙은 일회성 또는 주 단위 중에서 골라야 합니다")
 	}
 	if _, err := time.Parse("15:04", in.StartTime); err != nil {
-		return in, fmt.Errorf("开始时间格式不正确，请使用 HH:MM")
+		return in, fmt.Errorf("시작 시각 형식이 올바르지 않습니다. HH:MM 을 사용하세요")
 	}
 	if in.EndTime != "" && in.EndTime != "24:00" {
 		if _, err := time.Parse("15:04", in.EndTime); err != nil {
-			return in, fmt.Errorf("结束时间格式不正确，请使用 HH:MM")
+			return in, fmt.Errorf("종료 시각 형식이 올바르지 않습니다. HH:MM 을 사용하세요")
 		}
 	}
 	if in.ScheduleType == "once" {
 		if _, err := time.Parse("2006-01-02", in.RunDate); err != nil {
-			return in, fmt.Errorf("开始日期格式不正确")
+			return in, fmt.Errorf("시작 날짜 형식이 올바르지 않습니다")
 		}
 		if in.EndDate != "" {
 			startDate, _ := time.Parse("2006-01-02", in.RunDate)
 			endDate, err := time.Parse("2006-01-02", in.EndDate)
 			if err != nil {
-				return in, fmt.Errorf("截止日期格式不正确")
+				return in, fmt.Errorf("마감 날짜 형식이 올바르지 않습니다")
 			}
 			if endDate.Before(startDate) {
-				return in, fmt.Errorf("截止日期不能早于开始日期")
+				return in, fmt.Errorf("마감 날짜는 시작 날짜보다 빠를 수 없습니다")
 			}
 			if endDate.Equal(startDate) && in.EndTime != "" && in.EndTime != "24:00" {
 				if in.EndTime <= in.StartTime {
-					return in, fmt.Errorf("同一天的结束时间必须晚于开始时间")
+					return in, fmt.Errorf("같은 날의 종료 시각은 시작 시각보다 늦어야 합니다")
 				}
 			}
 		}
@@ -123,12 +123,12 @@ func normalizeScheduleInput(in TaskScheduleInput) (TaskScheduleInput, error) {
 		seen := map[int]bool{}
 		for _, day := range in.Weekdays {
 			if day < 1 || day > 7 || seen[day] {
-				return in, fmt.Errorf("星期选择必须为周一至周日且不能重复")
+				return in, fmt.Errorf("요일은 월요일부터 일요일 중에서 골라야 하며 중복될 수 없습니다")
 			}
 			seen[day] = true
 		}
 		if len(in.Weekdays) == 0 {
-			return in, fmt.Errorf("按周计划至少选择一天")
+			return in, fmt.Errorf("주 단위 예약은 최소 하루를 골라야 합니다")
 		}
 		sort.Ints(in.Weekdays)
 		in.RunDate = ""
@@ -137,12 +137,12 @@ func normalizeScheduleInput(in TaskScheduleInput) (TaskScheduleInput, error) {
 	seenTasks := map[int64]bool{}
 	for _, id := range in.TaskIDs {
 		if id <= 0 || seenTasks[id] {
-			return in, fmt.Errorf("绑定任务编号无效或重复")
+			return in, fmt.Errorf("바인딩한 작업 번호가 유효하지 않거나 중복되었습니다")
 		}
 		seenTasks[id] = true
 	}
 	if len(in.TaskIDs) > 100 {
-		return in, fmt.Errorf("最多选择100个任务")
+		return in, fmt.Errorf("작업은 최대 100개까지 고를 수 있습니다")
 	}
 	return in, nil
 }
@@ -181,14 +181,14 @@ VALUES ($1,$2,$3,$4,NULLIF($5,''),NULLIF($6,''),$7,$8,NULLIF($9,''),$10) RETURNI
 	}
 	for _, taskID := range in.TaskIDs {
 		if taskID <= 0 {
-			return nil, fmt.Errorf("task_id 无效")
+			return nil, fmt.Errorf("task_id 가 유효하지 않습니다")
 		}
 		var exists bool
 		if err := tx.QueryRow(`SELECT EXISTS(SELECT 1 FROM tasks WHERE id=$1 AND deleted_at IS NULL)`, taskID).Scan(&exists); err != nil || !exists {
 			if err != nil {
 				return nil, err
 			}
-			return nil, fmt.Errorf("任务 #%d 不存在", taskID)
+			return nil, fmt.Errorf("작업 #%d 가 존재하지 않습니다", taskID)
 		}
 		if _, err := tx.Exec(`INSERT INTO task_schedule_tasks(schedule_id,task_id) VALUES($1,$2)`, s.ID, taskID); err != nil {
 			return nil, err

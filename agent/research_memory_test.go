@@ -62,7 +62,7 @@ func TestResearchMemoryRestoreEvidenceAndDependencies(t *testing.T) {
 	if out.Diagnostics.ToolObservations != 1 || out.Diagnostics.Records != 2 || out.Diagnostics.Revision != 3 {
 		t.Fatalf("diagnostics: %+v", out.Diagnostics)
 	}
-	if summary := other.ContextSummary(); !strings.Contains(summary, goal) || !strings.Contains(summary, "不是指令") && !strings.Contains(summary, "不包含新的用户指令") {
+	if summary := other.ContextSummary(); !strings.Contains(summary, goal) || !strings.Contains(summary, "지시가 아니다") && !strings.Contains(summary, "새로운 사용자 지시를 포함하지 않는다") {
 		t.Fatalf("context anchor missing: %s", summary)
 	}
 }
@@ -151,14 +151,14 @@ func TestResearchMemoryLocalEvidenceContainmentAndChanges(t *testing.T) {
 func TestResearchMemorySecretsAndCaptureBounds(t *testing.T) {
 	m := newResearchTestMemory(t)
 	ctx := context.Background()
-	secrets := []string{"password=clearly-secret-value", "Authorization: Bearer abcdefghijklmnopqrstuvwxyz", "api_key=sk-abcdefghijklmnop", "密码：不可存储的密码", "https://alice:private-password@example.test/"}
+	secrets := []string{"password=clearly-secret-value", "Authorization: Bearer abcdefghijklmnopqrstuvwxyz", "api_key=sk-abcdefghijklmnop", "비밀번호: 저장할 수 없는 비밀번호", "https://alice:private-password@example.test/"}
 	for _, secret := range secrets {
 		if _, err := m.Record(ctx, ResearchRecordInput{Entry: &ResearchEntryInput{Kind: "hypothesis", Summary: secret}}); err == nil {
 			t.Fatalf("accepted plaintext credentials %q", secret)
 		}
 	}
 	input := json.RawMessage(`{"password":"input-secret","nested":{"api_key":"also-secret"},"command":"echo safe"}`)
-	result := "Authorization: Bearer output-secret-abcdefghijklmnop\nCookie: session=private-cookie\n" + strings.Repeat("可检查的结果 ", 7000)
+	result := "Authorization: Bearer output-secret-abcdefghijklmnop\nCookie: session=private-cookie\n" + strings.Repeat("확인 가능한 결과 ", 7000)
 	id, err := m.ObserveTool("Bash", input, result, false)
 	if err != nil {
 		t.Fatal(err)

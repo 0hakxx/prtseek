@@ -76,8 +76,8 @@ func fixtureReply(w http.ResponseWriter, text string) {
 
 func TestCTFUploadCanBeReadByAgentAndRetryUsesSameFile(t *testing.T) {
 	s, c := ctfRegressionServer(t)
-	attachment := uploadCTFFixture(t, s, c.ID, "题目.txt", "local-attachment-evidence-731")
-	want := filepath.Join(s.conversationWorkDir(c.ID), "uploads", "题目.txt")
+	attachment := uploadCTFFixture(t, s, c.ID, "문제.txt", "local-attachment-evidence-731")
+	want := filepath.Join(s.conversationWorkDir(c.ID), "uploads", "문제.txt")
 	if attachment.Abs != want {
 		t.Fatalf("destination=%s", attachment.Abs)
 	}
@@ -136,7 +136,7 @@ func TestCTFUploadCanBeReadByAgentAndRetryUsesSameFile(t *testing.T) {
 		t.Fatal("agent did not execute Read")
 	}
 	waitCTFIdle(t, s, c.ID)
-	second := uploadCTFFixture(t, s, c.ID, "题目.txt", "different-content")
+	second := uploadCTFFixture(t, s, c.ID, "문제.txt", "different-content")
 	if second.Abs == attachment.Abs {
 		t.Fatal("same-name upload overwrote original")
 	}

@@ -103,17 +103,17 @@ func (d *DB) SetIntelligenceSettings(ctx context.Context, recording, enabled, bi
 	}
 	if !record {
 		if enabled != nil && *enabled {
-			return fmt.Errorf("%w: 请先开启 Agent 自动记录，再开启 Agent 开关", ErrIntelligenceInvalid)
+			return fmt.Errorf("%w: 먼저 Agent 자동 기록을 켠 뒤 Agent 스위치를 켜세요", ErrIntelligenceInvalid)
 		}
 		if binding != nil && *binding {
-			return fmt.Errorf("%w: 请依次开启 Agent 自动记录和 Agent 开关", ErrIntelligenceInvalid)
+			return fmt.Errorf("%w: Agent 자동 기록과 Agent 스위치를 차례로 켜세요", ErrIntelligenceInvalid)
 		}
 		on = false
 		bind = false
 	}
 	if !on {
 		if binding != nil && *binding {
-			return fmt.Errorf("%w: 请先开启 Agent 开关，再启用绑定流量", ErrIntelligenceInvalid)
+			return fmt.Errorf("%w: 먼저 Agent 스위치를 켠 뒤 트래픽 바인딩을 활성화하세요", ErrIntelligenceInvalid)
 		}
 		bind = false
 	}

@@ -475,13 +475,13 @@ func (i *Interceptor) Judge(ctx context.Context, tool string, arguments json.Raw
 	if contextErr != nil {
 		// Invalid current arguments cannot be reviewed faithfully, regardless of
 		// the configured model-failure strategy. A human must resolve the input.
-		out = Decision{Action: "ask", ModelFallback: true, Message: "审查上下文不完整，需要人工确认：" + contextErr.Error()}
+		out = Decision{Action: "ask", ModelFallback: true, Message: "검토 컨텍스트가 불완전해 사람의 확인이 필요합니다: " + contextErr.Error()}
 	} else {
 		modelInput, _ = json.Marshal(input)
 		out, err = reviewWithRetry(ctx, cfg, rv, input)
 	}
 	if err != nil {
-		out = Decision{ProfileID: out.ProfileID, ModelFallback: true, Action: cfg.FailAction, Message: "模型审批失败,按失败策略处理: " + err.Error()}
+		out = Decision{ProfileID: out.ProfileID, ModelFallback: true, Action: cfg.FailAction, Message: "모델 승인 실패, 실패 정책에 따라 처리: " + err.Error()}
 	}
 	// By default the model receives snapshot read errors and its verdict is
 	// honored. Operators may explicitly require human review when an incomplete
@@ -491,7 +491,7 @@ func (i *Interceptor) Judge(ctx context.Context, tool string, arguments json.Raw
 	case "allow", "ask", "deny":
 		// valid verdict
 	default:
-		out = Decision{ProfileID: out.ProfileID, ModelFallback: true, Action: cfg.FailAction, Message: "模型输出无法解析,按失败策略处理"}
+		out = Decision{ProfileID: out.ProfileID, ModelFallback: true, Action: cfg.FailAction, Message: "모델 출력을 파싱할 수 없어 실패 정책에 따라 처리"}
 	}
 	// A model verdict never carries a rule; keep RuleID 0 (→ NULL) for history.
 	out.RuleID = 0
@@ -506,9 +506,9 @@ func (i *Interceptor) Judge(ctx context.Context, tool string, arguments json.Raw
 	configJSON, _ := json.Marshal(cfg)
 	out.ConfigDigest = digestInput(configJSON)
 	if out.Message == "" {
-		out.Message = "[模型] " + judgeActionLabel(out.Action)
-	} else if !strings.HasPrefix(out.Message, "[模型]") {
-		out.Message = "[模型] " + out.Message
+		out.Message = "[모델] " + judgeActionLabel(out.Action)
+	} else if !strings.HasPrefix(out.Message, "[모델]") {
+		out.Message = "[모델] " + out.Message
 	}
 	if out.Action == "ask" {
 		out.TimeoutEnabled = true
@@ -521,7 +521,7 @@ func (i *Interceptor) Judge(ctx context.Context, tool string, arguments json.Raw
 func applyIncompleteScriptPolicy(input ReviewInput, out Decision, policy string) Decision {
 	if input.ScriptCaptureStatus == "incomplete" && policy != "model" && out.Action == "allow" {
 		out.Action = "ask"
-		out.Message = "脚本未能完整附加，无法排除隐藏副作用，需要人工确认"
+		out.Message = "스크립트를 완전히 첨부하지 못해 숨겨진 부수 효과를 배제할 수 없으므로 사람의 확인이 필요합니다"
 	}
 	return out
 }
@@ -529,11 +529,11 @@ func applyIncompleteScriptPolicy(input ReviewInput, out Decision, policy string)
 func judgeActionLabel(action string) string {
 	switch action {
 	case "allow":
-		return "放行"
+		return "허용"
 	case "deny":
-		return "拦截"
+		return "차단"
 	case "ask":
-		return "转人工审批"
+		return "수동 승인으로 전환"
 	default:
 		return action
 	}
@@ -587,9 +587,9 @@ func ruleMatches(r compiledRule, toolName string, input []byte) bool {
 func defaultMessage(action, name string) string {
 	switch action {
 	case "deny":
-		return "拦截规则 [" + name + "] 禁止执行此工具"
+		return "차단 규칙 [" + name + "] 이 이 도구의 실행을 금지합니다"
 	case "ask":
-		return "拦截规则 [" + name + "] 要求用户审批，请等待"
+		return "차단 규칙 [" + name + "] 이 사용자 승인을 요구합니다. 기다려 주세요"
 	default:
 		return ""
 	}
@@ -646,7 +646,7 @@ func (i *Interceptor) HandleAsk(ctx context.Context, convID int64, dec Decision,
 	})
 	activity := db.Activity{
 		Kind:    "intercept_request",
-		Summary: fmt.Sprintf("工具 %s 请求审批 (#%d)", toolName, pendingID),
+		Summary: fmt.Sprintf("도구 %s 승인 요청 (#%d)", toolName, pendingID),
 		Detail:  string(detail),
 	}
 
@@ -665,8 +665,8 @@ func (i *Interceptor) HandleAsk(ctx context.Context, convID int64, dec Decision,
 		case allowed := <-ch:
 			return allowed
 		case <-ctx.Done():
-			_, _ = i.db.ResolveIntercept(pendingID, "denied", "deny", "工作已取消")
-			_ = i.db.CompleteIntercept(pendingID, audit.RunID, audit.ToolUseID, "not_executed", "执行前工作已取消", false)
+			_, _ = i.db.ResolveIntercept(pendingID, "denied", "deny", "작업이 취소됨")
+			_ = i.db.CompleteIntercept(pendingID, audit.RunID, audit.ToolUseID, "not_executed", "실행 전에 작업이 취소됨", false)
 			return false
 		}
 	}
@@ -686,7 +686,7 @@ func (i *Interceptor) HandleAsk(ctx context.Context, convID int64, dec Decision,
 		if allowed {
 			action = "allow"
 		}
-		resolved, err := i.db.ResolveIntercept(pendingID, "timeout", action, "审批超时，按超时策略处理")
+		resolved, err := i.db.ResolveIntercept(pendingID, "timeout", action, "승인 시간이 초과되어 시간 초과 정책에 따라 처리")
 		if err != nil {
 			return false
 		}
@@ -696,13 +696,13 @@ func (i *Interceptor) HandleAsk(ctx context.Context, convID int64, dec Decision,
 		}
 		return allowed
 	case <-ctx.Done():
-		_, _ = i.db.ResolveIntercept(pendingID, "denied", "deny", "工作已取消")
-		_ = i.db.CompleteIntercept(pendingID, audit.RunID, audit.ToolUseID, "not_executed", "执行前工作已取消", false)
+		_, _ = i.db.ResolveIntercept(pendingID, "denied", "deny", "작업이 취소됨")
+		_ = i.db.CompleteIntercept(pendingID, audit.RunID, audit.ToolUseID, "not_executed", "실행 전에 작업이 취소됨", false)
 		return false
 	}
 }
 
-var ErrAlreadyDecided = errors.New("审批已处理或不存在，请刷新记录")
+var ErrAlreadyDecided = errors.New("승인이 이미 처리되었거나 존재하지 않습니다. 기록을 새로 고치세요")
 
 // Decide resolves a pending request. Called by the HTTP decide endpoint.
 func (i *Interceptor) Decide(pendingID int64, allowed bool) error {
@@ -710,9 +710,9 @@ func (i *Interceptor) Decide(pendingID int64, allowed bool) error {
 	if allowed {
 		status = "allowed"
 	}
-	action, reason := "deny", "人工拒绝执行"
+	action, reason := "deny", "수동 거부: 실행하지 않음"
 	if allowed {
-		action, reason = "allow", "人工允许执行"
+		action, reason = "allow", "수동 허용: 실행함"
 	}
 	resolved, err := i.db.ResolveIntercept(pendingID, status, action, reason, "manual")
 	if err != nil {

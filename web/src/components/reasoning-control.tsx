@@ -8,14 +8,14 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { personalApi } from "@/lib/personal-api";
 
 const labels: Record<string, string> = {
-  none: "关闭",
-  minimal: "最少",
-  low: "低",
-  medium: "中",
-  high: "高",
-  xhigh: "最高",
-  max: "最大",
-  ultra: "极高",
+  none: "끔",
+  minimal: "최소",
+  low: "낮음",
+  medium: "중간",
+  high: "높음",
+  xhigh: "아주 높음",
+  max: "최대",
+  ultra: "극히 높음",
 };
 
 export function ReasoningControl({
@@ -51,12 +51,12 @@ export function ReasoningControl({
         setEfforts(result.reasoning_efforts.filter(Boolean));
         setHint(
           result.reasoning_efforts.filter(Boolean).length
-            ? "选择非默认强度时将验证接口支持，下一轮生效"
-            : "该模型尚未确认可调强度，使用模型默认",
+            ? "기본이 아닌 강도를 선택하면 인터페이스 지원을 검증하며 다음 턴부터 적용됩니다"
+            : "이 모델은 아직 조정 가능한 강도를 확인하지 않아 모델 기본값을 사용",
         );
       })
       .catch(() => {
-        if (version.current === current) setHint("无法读取模型能力，暂用模型默认");
+        if (version.current === current) setHint("모델 능력을 읽을 수 없어 잠시 모델 기본값 사용");
       })
       .finally(() => {
         if (version.current === current) setLoading(false);
@@ -73,7 +73,7 @@ export function ReasoningControl({
     try {
       if (next) {
         const result = await personalApi.verifyEffort(profileId, next);
-        if (!result.verified) throw new Error(result.error || "接口没有确认此强度，请使用模型默认");
+        if (!result.verified) throw new Error(result.error || "인터페이스가 이 강도를 확인하지 않았습니다. 모델 기본값을 사용하세요");
       }
       if (version.current === current) await onChange(next);
     } catch (e) {
@@ -88,16 +88,16 @@ export function ReasoningControl({
       className="flex min-h-11 items-center gap-2 border px-2 text-sm text-muted-foreground"
       title={hint}
     >
-      <span>{busy ? "验证中…" : "思考"}</span>
+      <span>{busy ? "검증 중…" : "사고"}</span>
       <NativeSelect
-        aria-label="思考强度"
+        aria-label="사고 강도"
         value={value}
         onChange={(e) => void choose(e.target.value)}
         disabled={disabled === true || busy || loading || !profileId}
         className="max-w-36 border-0 bg-transparent py-1 pr-8 text-sm text-foreground focus-visible:ring-0"
       >
-        <option value="">模型默认</option>
-        {value && !efforts.includes(value) && <option value={value}>{labels[value] ?? value}（待确认）</option>}
+        <option value="">모델 기본값</option>
+        {value && !efforts.includes(value) && <option value={value}>{labels[value] ?? value}(확인 대기)</option>}
         {efforts.map((effort) => (
           <option key={effort} value={effort}>
             {labels[effort] ?? effort}

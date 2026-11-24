@@ -31,11 +31,11 @@ func (s *Server) isHistoricalFindingReview(conv int64) (bool, error) {
 
 func (s *Server) toolCompleteFindingCaseReview() actool.CoreTool {
 	decision := objSchema(map[string]any{
-		"finding_id":          idParam("所选独立漏洞记录 ID"),
+		"finding_id":          idParam("선택한 독립 취약점 기록 ID"),
 		"verdict":             map[string]any{"type": "string", "enum": []string{"independent", "merged", "suggested"}},
-		"reason":              strParam("判断理由，引用已证据化的共同点或不同代码路径；仅类型、标题或资产相同不足以证明共同根因"),
-		"root_cause_evidence": strParam("原始报告/证据中支持实际共同或不同根因的具体材料；suggested 须说明具体共同点、缺失的关键证据及已保存分组；没有具体共同点应判 independent")}, "finding_id", "verdict", "reason", "root_cause_evidence")
-	return wrTool("complete_finding_case_review", "历史整理结束前提交每条所选记录的根因判断并验收：必须已读取全部记录，疑似必须已有待确认分组建议；归并只需已在活动文件夹中，统一报告可稍后补齐。验收失败不能宣布完成。", objSchema(map[string]any{"summary": strParam("整理结果总结"), "decisions": map[string]any{"type": "array", "items": decision}}, "summary", "decisions"), func(ctx context.Context, raw json.RawMessage) (actool.Result, error) {
+		"reason":              strParam("판단 이유. 증거화된 공통점이나 서로 다른 코드 경로를 인용할 것. 유형, 제목, 자산만 같다고 공통 근본 원인을 증명할 수 없음"),
+		"root_cause_evidence": strParam("원래 보고/증거에서 실제 공통 또는 서로 다른 근본 원인을 뒷받침하는 구체적 자료. suggested 는 구체적인 공통점, 부족한 핵심 증거, 저장된 그룹을 설명해야 함. 구체적인 공통점이 없으면 independent 로 판정할 것")}, "finding_id", "verdict", "reason", "root_cause_evidence")
+	return wrTool("complete_finding_case_review", "과거 정리를 끝내기 전에 선택한 기록마다 근본 원인 판단을 제출하고 검수한다: 모든 기록을 반드시 읽었어야 하고, 의심에는 확인 대기 그룹 제안이 있어야 한다. 병합은 활성 폴더에 있기만 하면 되고 통합 보고서는 나중에 보충할 수 있다. 검수에 실패하면 완료를 선언할 수 없다.", objSchema(map[string]any{"summary": strParam("정리 결과 요약"), "decisions": map[string]any{"type": "array", "items": decision}}, "summary", "decisions"), func(ctx context.Context, raw json.RawMessage) (actool.Result, error) {
 		var a findingReviewConclusion
 		if err := json.Unmarshal(raw, &a); err != nil {
 			return actool.Errorf(err.Error()), nil
@@ -44,13 +44,13 @@ func (s *Server) toolCompleteFindingCaseReview() actool.CoreTool {
 		if err := s.saveFindingReviewConclusion(ctx, conv, a); err != nil {
 			return actool.Errorf(err.Error()), nil
 		}
-		return actool.Text("历史整理验收通过；原始记录和报告保留，逐条根因判断已保存。"), nil
+		return actool.Text("과거 정리 검수를 통과했습니다. 원래 기록과 보고는 보존했고, 기록별 근본 원인 판단을 저장했습니다."), nil
 	})
 }
 
 func (s *Server) saveFindingReviewConclusion(ctx context.Context, conv int64, a findingReviewConclusion) error {
 	if conv <= 0 {
-		return errors.New("仅用于有上下文的历史整理会话")
+		return errors.New("컨텍스트가 있는 과거 정리 대화에만 쓸 수 있습니다")
 	}
 	return s.m.pg.WithEvidenceTx(ctx, func(tx *sql.Tx) error {
 		var idsRaw, readsRaw json.RawMessage
@@ -59,7 +59,7 @@ func (s *Server) saveFindingReviewConclusion(ctx context.Context, conv int64, a 
 			return err
 		}
 		if state != "running" {
-			return errors.New("整理会话未运行，不能提交验收")
+			return errors.New("정리 대화가 실행 중이 아니어서 검수를 제출할 수 없습니다")
 		}
 		var ids, reads []int64
 		if err := json.Unmarshal(idsRaw, &ids); err != nil {
@@ -75,20 +75,20 @@ func (s *Server) saveFindingReviewConclusion(ctx context.Context, conv int64, a 
 		decisions := map[int64]findingReviewDecision{}
 		for _, d := range a.Decisions {
 			if _, ok := decisions[d.FindingID]; ok {
-				return errors.New("重复的判断编号")
+				return errors.New("중복된 판단 번호")
 			}
 			decisions[d.FindingID] = d
 		}
 		if strings.TrimSpace(a.Summary) == "" || len(ids) != len(decisions) {
-			return errors.New("须提供总结和覆盖全部所选记录的逐条判断")
+			return errors.New("요약과, 선택한 모든 기록을 포괄하는 기록별 판단을 제공해야 합니다")
 		}
 		for _, id := range ids {
 			d, ok := decisions[id]
 			if !ok || !read[id] {
-				return fmt.Errorf("请先 get_finding_record 读取并判断所选记录 #%d", id)
+				return fmt.Errorf("먼저 get_finding_record 로 선택한 기록 #%d 를 읽고 판단하세요", id)
 			}
 			if strings.TrimSpace(d.Reason) == "" || strings.TrimSpace(d.RootCauseEvidence) == "" {
-				return fmt.Errorf("记录 #%d 缺少判断理由或根因证据", id)
+				return fmt.Errorf("기록 #%d 에 판단 이유나 근본 원인 증거가 없습니다", id)
 			}
 			var cid sql.NullInt64
 			if err := tx.QueryRow(`SELECT m.case_id FROM findings f LEFT JOIN finding_case_members m ON m.finding_id=f.id WHERE f.id=$1`, id).Scan(&cid); err != nil {
@@ -97,7 +97,7 @@ func (s *Server) saveFindingReviewConclusion(ctx context.Context, conv int64, a 
 			switch d.Verdict {
 			case "merged":
 				if !cid.Valid {
-					return fmt.Errorf("记录 #%d 尚未归并", id)
+					return fmt.Errorf("기록 #%d 가 아직 병합되지 않았습니다", id)
 				}
 			case "suggested":
 				var pending bool
@@ -107,14 +107,14 @@ func (s *Server) saveFindingReviewConclusion(ctx context.Context, conv int64, a 
 					return err
 				}
 				if !pending {
-					return fmt.Errorf("记录 #%d 须先保存待确认建议", id)
+					return fmt.Errorf("기록 #%d 는 먼저 확인 대기 제안을 저장해야 합니다", id)
 				}
 			case "independent":
 				if cid.Valid {
-					return fmt.Errorf("记录 #%d 已在文件夹中，不能声明为独立", id)
+					return fmt.Errorf("기록 #%d 가 이미 폴더에 있어 독립으로 선언할 수 없습니다", id)
 				}
 			default:
-				return errors.New("无效判断类型")
+				return errors.New("유효하지 않은 판단 유형")
 			}
 			if cid.Valid {
 				var active bool
@@ -122,7 +122,7 @@ func (s *Server) saveFindingReviewConclusion(ctx context.Context, conv int64, a 
 					return err
 				}
 				if !active {
-					return fmt.Errorf("文件夹 #%d 已关闭", cid.Int64)
+					return fmt.Errorf("폴더 #%d 가 이미 닫혔습니다", cid.Int64)
 				}
 			}
 		}
@@ -145,7 +145,7 @@ func (s *Server) validateFindingReviewCompletion(conv int64) error {
 		return err
 	}
 	if len(a.Decisions) == 0 {
-		return errors.New("整理未通过验收：未提交 complete_finding_case_review 逐条根因判断；请查看执行记录")
+		return errors.New("정리가 검수를 통과하지 못했습니다: complete_finding_case_review 기록별 근본 원인 판단을 제출하지 않았습니다. 실행 기록을 확인하세요")
 	}
 	// Recheck after the last model turn; concurrent evidence changes invalidate completion.
 	return s.saveFindingReviewConclusion(context.Background(), conv, a)
@@ -154,8 +154,8 @@ func (s *Server) validateFindingReviewCompletion(conv int64) error {
 // Require substantive sections and balanced fenced blocks. This validates report
 // completeness, not the truth of a model's root-cause claim or a live exploit.
 func validateUnifiedFindingReport(report string) error {
-	aliases := [][]string{{"概述", "overview", "summary"}, {"影响", "impact"}, {"前置", "prerequisite", "precondition"}, {"复现", "reproduction", "reproduce"}, {"证据", "evidence"}, {"poc", "完整脚本", "验证脚本", "proof of concept"}, {"根因", "root cause"}, {"修复", "remediation", "recommendation", "fix"}}
-	names := []string{"概述", "影响", "前置条件", "复现步骤", "证据", "PoC", "根因分析", "修复建议"}
+	aliases := [][]string{{"개요", "overview", "summary"}, {"영향", "impact"}, {"전제", "prerequisite", "precondition"}, {"재현", "reproduction", "reproduce"}, {"증거", "evidence"}, {"poc", "완전한 스크립트", "검증 스크립트", "proof of concept"}, {"근본 원인", "root cause"}, {"수정", "remediation", "recommendation", "fix"}}
+	names := []string{"개요", "영향", "전제 조건", "재현 절차", "증거", "PoC", "근본 원인 분석", "수정 권고"}
 	found := make([]bool, len(aliases))
 	current := -1
 	hasContent := false
@@ -214,7 +214,7 @@ func validateUnifiedFindingReport(report string) error {
 	}
 	finish()
 	if fence != "" {
-		return errors.New("统一报告代码块未闭合，可能截断；请补全后再保存")
+		return errors.New("통합 보고서의 코드 블록이 닫히지 않아 잘렸을 수 있습니다. 보완한 뒤 다시 저장하세요")
 	}
 	missing := []string{}
 	for i, ok := range found {
@@ -223,7 +223,7 @@ func validateUnifiedFindingReport(report string) error {
 		}
 	}
 	if len(missing) > 0 {
-		return fmt.Errorf("统一报告缺少有内容的章节：%s；请补全后保存", strings.Join(missing, "、"))
+		return fmt.Errorf("통합 보고서에 내용이 있는 장이 없습니다: %s. 보완한 뒤 저장하세요", strings.Join(missing, ", "))
 	}
 	return nil
 }

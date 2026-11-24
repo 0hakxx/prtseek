@@ -307,7 +307,7 @@ func TestCTFResearchProductionChatAndResume(t *testing.T) {
 		}
 		for _, msg := range req.Messages {
 			for _, b := range msg.Content {
-				if b.Type == llm.BlockToolResult && strings.Contains(blocksText(b.Content), "研究状态已保存：blocked") {
+				if b.Type == llm.BlockToolResult && strings.Contains(blocksText(b.Content), "연구 상태를 저장했습니다: blocked") {
 					return ctfTextReply("Please supply attachment")
 				}
 			}

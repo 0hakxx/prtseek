@@ -14,8 +14,8 @@ export function PersonalOnboarding() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>配置模型</DialogTitle>
-          <DialogDescription>填写模型配置后即可开始对话。</DialogDescription>
+          <DialogTitle>모델 설정</DialogTitle>
+          <DialogDescription>모델 설정을 입력하면 대화를 시작할 수 있습니다.</DialogDescription>
         </DialogHeader>
         <ModelEditor initial onSaved={() => setOpen(false)} />
       </DialogContent>

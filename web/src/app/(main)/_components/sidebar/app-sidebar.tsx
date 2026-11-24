@@ -29,7 +29,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild className="prts-brand-link" tooltip="prtseek">
-              <Link href="/chat" aria-label="prtseek 研究终端">
+              <Link href="/chat" aria-label="prtseek 연구 터미널">
                 <PrtsBrand />
               </Link>
             </SidebarMenuButton>

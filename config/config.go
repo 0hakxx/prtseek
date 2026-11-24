@@ -129,7 +129,7 @@ func SkillDir() string {
 // SQLitePath resolves an embedded database file, never a network DSN.
 func SQLitePath() (path, source string, err error) {
 	if v, name := LookupEnv("DB_PATH"); strings.TrimSpace(v) != "" {
-		return strings.TrimSpace(v), "环境变量 " + name, nil
+		return strings.TrimSpace(v), "환경 변수 " + name, nil
 	}
 	var c Config
 	b, readErr := os.ReadFile(Path())
@@ -143,10 +143,10 @@ func SQLitePath() (path, source string, err error) {
 	}
 	d := c.Database
 	if strings.TrimSpace(d.Path) != "" {
-		return d.Path, "配置文件 " + Path() + " (database.path)", nil
+		return d.Path, "설정 파일 " + Path() + " (database.path)", nil
 	}
 	if Env("PG_DSN") != "" || d.DSN != "" || d.Host != "" || d.User != "" || d.DBName != "" || d.Port != 0 || d.Password != "" || d.SSLMode != "" {
-		return "", "", fmt.Errorf("检测到旧 PostgreSQL 配置；请备份旧数据库并设置 database.path 或 prtseek_DB_PATH。不会自动迁移或覆盖旧数据")
+		return "", "", fmt.Errorf("이전 PostgreSQL 설정이 감지되었습니다. 기존 데이터베이스를 백업하고 database.path 또는 prtseek_DB_PATH 를 설정하세요. 자동으로 마이그레이션하거나 기존 데이터를 덮어쓰지 않습니다")
 	}
-	return filepath.Join(BaseDir(), "data", "prtseek.db"), "默认本地 SQLite 文件", nil
+	return filepath.Join(BaseDir(), "data", "prtseek.db"), "기본 로컬 SQLite 파일", nil
 }

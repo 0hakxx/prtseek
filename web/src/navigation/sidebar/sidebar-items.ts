@@ -42,13 +42,13 @@ export const sidebarItems: NavGroup[] = [
   {
     id: 1,
     items: [
-      { id: "chat", title: "对话与会话", url: "/chat", icon: Bot },
-      { id: "agents", title: "Agents 管理", url: "/system/agents", icon: Bot },
-      { id: "llm", title: "LLM 管理", url: "/system/llm", icon: Network },
-      { id: "tools", title: "工具管理", url: "/system/tools", icon: Wrench },
-      { id: "settings", title: "设置", url: "/settings", icon: Settings2 },
-      { id: "workspace", title: "文件工作区", url: "/function/workspace", icon: FolderOpen },
-      { id: "skills", title: "技能库", url: "/system/skills", icon: Sparkles },
+      { id: "chat", title: "대화 및 세션", url: "/chat", icon: Bot },
+      { id: "agents", title: "Agents 관리", url: "/system/agents", icon: Bot },
+      { id: "llm", title: "LLM 관리", url: "/system/llm", icon: Network },
+      { id: "tools", title: "도구 관리", url: "/system/tools", icon: Wrench },
+      { id: "settings", title: "설정", url: "/settings", icon: Settings2 },
+      { id: "workspace", title: "파일 작업 공간", url: "/function/workspace", icon: FolderOpen },
+      { id: "skills", title: "스킬 라이브러리", url: "/system/skills", icon: Sparkles },
     ],
   },
 ];
@@ -58,5 +58,5 @@ export function sectionFor(path: string): [string, string] {
   const match = links
     .filter((item) => path === item.url || path.startsWith(`${item.url}/`))
     .sort((a, b) => b.url.length - a.url.length)[0];
-  return match ? [match.title, `PRTSEEK / ${match.id.toUpperCase()}`] : ["对话", "PRTSEEK"];
+  return match ? [match.title, `PRTSEEK / ${match.id.toUpperCase()}`] : ["대화", "PRTSEEK"];
 }

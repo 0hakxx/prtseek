@@ -29,7 +29,7 @@ func decodeConversationRequest(w http.ResponseWriter, r *http.Request, value any
 	if err := decode(r, value); err != nil {
 		var tooLarge *http.MaxBytesError
 		if errors.As(err, &tooLarge) {
-			writeErr(w, http.StatusRequestEntityTooLarge, "请求正文过大")
+			writeErr(w, http.StatusRequestEntityTooLarge, "요청 본문이 너무 큽니다")
 		} else {
 			writeErr(w, http.StatusBadRequest, err.Error())
 		}
@@ -123,11 +123,11 @@ func (s *Server) pgCreateConversation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.AgentKey == "" {
-		writeErr(w, 400, "agent_key 不能为空")
+		writeErr(w, 400, "agent_key 는 비워 둘 수 없습니다")
 		return
 	}
 	if utf8.RuneCountInString(req.AgentKey) > maxConversationAgentKeyRunes {
-		writeErr(w, 400, fmt.Sprintf("agent_key 最多 %d 个字符", maxConversationAgentKeyRunes))
+		writeErr(w, 400, fmt.Sprintf("agent_key 는 최대 %d 자입니다", maxConversationAgentKeyRunes))
 		return
 	}
 	a, err := pg.GetAgentByKey(req.AgentKey)
@@ -136,16 +136,16 @@ func (s *Server) pgCreateConversation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if a == nil {
-		writeErr(w, 404, "agent 不存在")
+		writeErr(w, 404, "agent 가 존재하지 않습니다")
 		return
 	}
 	if !a.Enabled || pg.AgentArchived(a.Key) {
-		writeErr(w, 400, "Agent 已停用或删除")
+		writeErr(w, 400, "Agent 가 비활성화되었거나 삭제되었습니다")
 		return
 	}
 	if req.LLMProfileID != nil {
 		if _, ok := s.loadProfileConfig(*req.LLMProfileID); !ok {
-			writeErr(w, 400, "指定的 LLM 配置不存在或未设置 API Key")
+			writeErr(w, 400, "지정한 LLM 설정이 없거나 API Key 가 설정되지 않았습니다")
 			return
 		}
 	}
@@ -155,10 +155,10 @@ func (s *Server) pgCreateConversation(w http.ResponseWriter, r *http.Request) {
 	}
 	title := strings.TrimSpace(req.Title)
 	if title == "" {
-		title = "新对话"
+		title = "새 대화"
 	}
 	if utf8.RuneCountInString(title) > maxConversationTitleRunes {
-		writeErr(w, 400, fmt.Sprintf("标题最多 %d 个字符", maxConversationTitleRunes))
+		writeErr(w, 400, fmt.Sprintf("제목은 최대 %d 자입니다", maxConversationTitleRunes))
 		return
 	}
 	c, err := pg.CreateConversation(req.AgentKey, title, req.LLMProfileID, db.PersonalConversationSettings{ReasoningEffort: req.ReasoningEffort})
@@ -183,7 +183,7 @@ func (s *Server) pgUpdateConversation(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.LLMProfileID != nil {
 		if _, ok := s.loadProfileConfig(*req.LLMProfileID); !ok {
-			writeErr(w, 400, "指定的 LLM 配置不存在或未设置 API Key")
+			writeErr(w, 400, "지정한 LLM 설정이 없거나 API Key 가 설정되지 않았습니다")
 			return
 		}
 	}
@@ -191,7 +191,7 @@ func (s *Server) pgUpdateConversation(w http.ResponseWriter, r *http.Request) {
 	s.chatMu.Lock()
 	if s.chatBusy[key] || s.chatBusy[controlKey] {
 		s.chatMu.Unlock()
-		writeErr(w, 409, "请等待当前轮结束，后台任务请先暂停再切换模型")
+		writeErr(w, 409, "현재 턴이 끝날 때까지 기다리세요. 백그라운드 작업은 먼저 일시 중지한 뒤 모델을 바꾸세요")
 		return
 	}
 	s.chatBusy[key], s.chatBusy[controlKey] = true, true
@@ -269,17 +269,17 @@ func (s *Server) pgRenameConversation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.Title == nil && req.Pinned == nil {
-		writeErr(w, 400, "至少需要提供 title 或 pinned")
+		writeErr(w, 400, "title 이나 pinned 중 최소 하나는 제공해야 합니다")
 		return
 	}
 	if req.Title != nil {
 		title := strings.TrimSpace(*req.Title)
 		if title == "" {
-			writeErr(w, 400, "标题不能为空")
+			writeErr(w, 400, "제목은 비워 둘 수 없습니다")
 			return
 		}
 		if utf8.RuneCountInString(title) > maxConversationTitleRunes {
-			writeErr(w, 400, fmt.Sprintf("标题最多 %d 个字符", maxConversationTitleRunes))
+			writeErr(w, 400, fmt.Sprintf("제목은 최대 %d 자입니다", maxConversationTitleRunes))
 			return
 		}
 		req.Title = &title
@@ -305,7 +305,7 @@ func (s *Server) pgDeleteConversation(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, 500, err.Error())
 		return
 	} else if run != nil {
-		writeErr(w, 409, "此会话关联后台执行记录，请保留会话以便回查结果")
+		writeErr(w, 409, "이 대화는 백그라운드 실행 기록과 연결되어 있으니, 결과를 다시 확인할 수 있도록 대화를 유지하세요")
 		return
 	}
 	s.cancelConversation(c.ID)
@@ -353,7 +353,7 @@ func (s *Server) pgDeleteConversationsBatch(w http.ResponseWriter, r *http.Reque
 	seen := make(map[int64]struct{}, len(request.IDs))
 	for _, id := range request.IDs {
 		if id <= 0 {
-			writeErr(w, http.StatusBadRequest, "对话 id 无效")
+			writeErr(w, http.StatusBadRequest, "대화 id 가 유효하지 않습니다")
 			return
 		}
 		if _, exists := seen[id]; exists {
@@ -363,7 +363,7 @@ func (s *Server) pgDeleteConversationsBatch(w http.ResponseWriter, r *http.Reque
 		ids = append(ids, id)
 	}
 	if len(ids) == 0 || len(ids) > maxConversationDeleteBatch {
-		writeErr(w, http.StatusBadRequest, fmt.Sprintf("ids 数量必须为 1-%d", maxConversationDeleteBatch))
+		writeErr(w, http.StatusBadRequest, fmt.Sprintf("ids 개수는 1-%d 여야 합니다", maxConversationDeleteBatch))
 		return
 	}
 	for _, id := range ids {
@@ -371,7 +371,7 @@ func (s *Server) pgDeleteConversationsBatch(w http.ResponseWriter, r *http.Reque
 			writeErr(w, 500, err.Error())
 			return
 		} else if run != nil {
-			writeErr(w, 409, "所选会话关联后台执行记录，请保留会话以便回查结果")
+			writeErr(w, 409, "선택한 대화가 백그라운드 실행 기록과 연결되어 있으니, 결과를 다시 확인할 수 있도록 대화를 유지하세요")
 			return
 		}
 	}
@@ -498,12 +498,12 @@ func (s *Server) pgSendConversationMessage(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if a == nil || !a.Enabled || pg.AgentArchived(c.AgentKey) {
-		writeErr(w, 409, "Agent 已停用或删除")
+		writeErr(w, 409, "Agent 가 비활성화되었거나 삭제되었습니다")
 		return
 	}
 	var req struct {
 		Message     string           `json:"message"`
-		Attachments []chatAttachment `json:"attachments,omitempty"` // 方式1 上传的文件(路径相对会话工作目录)
+		Attachments []chatAttachment `json:"attachments,omitempty"` // 방식1 로 업로드한 파일(경로는 대화 작업 디렉터리 기준 상대 경로)
 		Interrupt   bool             `json:"interrupt,omitempty"`
 	}
 	if err := decode(r, &req); err != nil {
@@ -512,7 +512,7 @@ func (s *Server) pgSendConversationMessage(w http.ResponseWriter, r *http.Reques
 	}
 	msg := strings.TrimSpace(req.Message)
 	if msg == "" && len(req.Attachments) == 0 {
-		writeErr(w, 400, "消息不能为空")
+		writeErr(w, 400, "메시지는 비워 둘 수 없습니다")
 		return
 	}
 	req.Attachments, err = s.resolveConversationAttachments(c.ID, req.Attachments)
@@ -558,13 +558,13 @@ func (s *Server) pgSendConversationMessage(w http.ResponseWriter, r *http.Reques
 		s.chatMu.Lock()
 		delete(s.chatBusy, busyKey)
 		s.chatMu.Unlock()
-		writeErr(w, 500, "消息保存失败，请重试")
+		writeErr(w, 500, "메시지 저장에 실패했습니다. 다시 시도하세요")
 		return
 	}
-	if c.Title == "" || c.Title == "新对话" {
+	if c.Title == "" || c.Title == "新对话" || c.Title == "새 대화" {
 		title := firstLine(msg, 40)
 		if title == "" {
-			title = "附件消息"
+			title = "첨부 파일 메시지"
 		}
 		_ = pg.RenameConversation(c.ID, title)
 	}
@@ -601,14 +601,14 @@ func (s *Server) reserveConversationTurn(ctx context.Context, busyKey string, in
 		stop := s.chatCancel[busyKey]
 		s.chatMu.Unlock()
 		if !interrupt {
-			return errors.New("该会话正在处理上一条消息，请稍候")
+			return errors.New("이 대화는 이전 메시지를 처리하는 중입니다. 잠시 기다리세요")
 		}
 		if stop != nil {
 			stop(agent.AbortChatStoppedByUser)
 		}
 		select {
 		case <-ctx.Done():
-			return errors.New("上一轮仍在停止中，请稍后重试；新消息尚未发送")
+			return errors.New("이전 턴이 아직 중지되는 중입니다. 잠시 후 다시 시도하세요. 새 메시지는 아직 전송되지 않았습니다")
 		case <-ticker.C:
 		}
 	}
@@ -659,7 +659,7 @@ func (s *Server) runConversationTurn(ctx context.Context, cancel context.CancelC
 	}()
 	language := inferPersonalLanguage(msg, s.personalConversationSettings(c.ID).ResponseLanguage)
 	if err := s.m.pg.SetPersonalConversationLanguage(c.ID, language); err != nil {
-		_, _ = s.m.pg.AppendConvActivity(c.ID, db.Activity{Kind: "text", IsError: true, Summary: "无法保存本次会话语言设置，请稍后再试。"})
+		_, _ = s.m.pg.AppendConvActivity(c.ID, db.Activity{Kind: "text", IsError: true, Summary: "이번 대화 언어 설정을 저장할 수 없습니다. 잠시 후 다시 시도하세요."})
 		return
 	}
 	ctx = agent.WithResponseLanguage(ctx, language)
@@ -668,7 +668,7 @@ func (s *Server) runConversationTurn(ctx context.Context, cancel context.CancelC
 	}
 	// Only the first turn executes a historical retest. Follow-up conversation
 	// turns may explain the sealed result; the result tool refuses to overwrite it.
-	finishStatus, finishReason := "failed", "Agent 未能启动"
+	finishStatus, finishReason := "failed", "Agent 를 시작하지 못했습니다"
 	if c.AgentKey == "reporter" {
 		manualReview, err := s.isHistoricalFindingReview(c.ID)
 		if err != nil {
@@ -686,7 +686,7 @@ func (s *Server) runConversationTurn(ctx context.Context, cancel context.CancelC
 				state = "failed"
 				reason = finishReason
 				if ctx.Err() != nil {
-					reason = "整理已停止或服务关闭"
+					reason = "정리가 중지되었거나 서비스가 종료되었습니다"
 				}
 			}
 			if state == "done" && manualReview {
@@ -704,7 +704,7 @@ func (s *Server) runConversationTurn(ctx context.Context, cancel context.CancelC
 			// The sealing defer below needs r.ID, which we do not have here. Seal by
 			// conversation instead, otherwise the row stays 'pending' forever.
 			log.Printf("[conv %d] load retest: %v", c.ID, err)
-			if err := s.m.pg.FailPendingRetestForConversation(c.ID, "复测状态读取失败，请重新发起"); err != nil {
+			if err := s.m.pg.FailPendingRetestForConversation(c.ID, "재테스트 상태 읽기에 실패했습니다. 다시 시작하세요"); err != nil {
 				log.Printf("[conv %d] seal retest: %v", c.ID, err)
 			}
 			return
@@ -712,7 +712,7 @@ func (s *Server) runConversationTurn(ctx context.Context, cancel context.CancelC
 		if r != nil && r.Status == "pending" {
 			defer func() {
 				if ctx.Err() != nil {
-					finishStatus, finishReason = "stopped", "复测已停止或服务已关闭"
+					finishStatus, finishReason = "stopped", "재테스트가 중지되었거나 서비스가 종료되었습니다"
 				}
 				s.finishRetest(r.ID, finishStatus, finishReason)
 			}()
@@ -751,7 +751,7 @@ func (s *Server) runConversationTurn(ctx context.Context, cancel context.CancelC
 			log.Printf("[conv %d] append activity failed: %v", c.ID, err)
 		}
 	}
-	// On a manual stop ctx is cancelled; Chat already emits a clean "已手动停止"
+	// On a manual stop ctx is cancelled; Chat already emits a clean "수동으로 중지됨"
 	// step, so skip the raw-error entry — only surface genuine failures.
 	ca = ca.WithExtraTools(s.conversationTools(c))
 	if isDefaultCTFAgent(c.AgentKey) {
@@ -759,7 +759,7 @@ func (s *Server) runConversationTurn(ctx context.Context, cancel context.CancelC
 		ctx, workflow = s.beginCTFWorkflow(ctx, c)
 		if err := s.startCTFExecution(c.ID, c.ID); err != nil {
 			s.closeCTFWorkflow(workflow)
-			_, _ = pg.AppendConvActivity(c.ID, db.Activity{Kind: "text", IsError: true, Summary: "无法保存运行状态，请重试"})
+			_, _ = pg.AppendConvActivity(c.ID, db.Activity{Kind: "text", IsError: true, Summary: "실행 상태를 저장할 수 없습니다. 다시 시도하세요"})
 			return
 		}
 		defer func() {
@@ -780,7 +780,7 @@ func (s *Server) runConversationTurn(ctx context.Context, cancel context.CancelC
 		var incomplete *agent.ResearchIncompleteError
 		if ctx.Err() == nil && !errors.As(err, &incomplete) {
 			_, _ = pg.AppendConvActivity(c.ID, db.Activity{Worker: c.AgentKey, Kind: "text", IsError: true,
-				Summary: "（出错：" + err.Error() + "）", Detail: err.Error()})
+				Summary: "(오류: " + err.Error() + ")", Detail: err.Error()})
 		}
 	} else {
 		finishStatus, finishReason = "completed", ""
@@ -788,16 +788,16 @@ func (s *Server) runConversationTurn(ctx context.Context, cancel context.CancelC
 	_ = pg.TouchConversation(c.ID)
 }
 
-// triggerBehavior is an agent's cached P3 trigger post-processing策略 (see the
+// triggerBehavior is an agent's cached P3 trigger post-processing 정책 (see the
 // agents table trigger_* columns). Read once per fire in StartTriggeredRun so the
 // pump never touches the DB while holding queueMu.
 type triggerBehavior struct {
 	runMode     string // serial | parallel
-	mergeMode   string // by_task | all | none (serial 用;parallel 忽略,每条各自一个会话)
-	maxParallel int    // parallel 用的每 agent 并发上限;<=0=不限
+	mergeMode   string // by_task | all | none (serial 용. parallel 은 무시하고 각 건마다 대화를 하나씩)
+	maxParallel int    // parallel 용 agent 별 동시 실행 상한. <=0=무제한
 }
 
-// readTriggerBehavior loads an agent's策略, falling back to safe defaults
+// readTriggerBehavior loads an agent's 정책, falling back to safe defaults
 // (serial / all / 5) on any error or unknown enum value.
 func (s *Server) readTriggerBehavior(agentKey string) triggerBehavior {
 	b := triggerBehavior{runMode: "serial", mergeMode: "all", maxParallel: 5}
@@ -820,7 +820,7 @@ func (s *Server) readTriggerBehavior(agentKey string) triggerBehavior {
 }
 
 // StartTriggeredRun enqueues a P3 trigger fire for agentKey and pumps the queue. The
-// agent's策略 decides concurrency + merge: serial → run one at a time (optionally
+// agent's 정책 decides concurrency + merge: serial → run one at a time (optionally
 // merging by task / all / none); parallel → run each fire in its own concurrent
 // conversation up to trigger_max_parallel. Distinct agents always run concurrently.
 func (s *Server) StartTriggeredRun(agentKey, title, message string, taskID int64, mergeable bool, taskDesc, taskGoal string) {
@@ -929,9 +929,9 @@ func taskContextHeader(taskID int64, desc, goal string) string {
 		return ""
 	}
 	if goal != "" {
-		return fmt.Sprintf("【任务 #%d %s（目标：%s）】", taskID, trunc(desc, 200), trunc(goal, 500))
+		return fmt.Sprintf("【작업 #%d %s(목표: %s)】", taskID, trunc(desc, 200), trunc(goal, 500))
 	}
-	return fmt.Sprintf("【任务 #%d %s】", taskID, trunc(desc, 200))
+	return fmt.Sprintf("【작업 #%d %s】", taskID, trunc(desc, 200))
 }
 
 // finalTriggerMessage renders the message actually sent to the agent for a single
@@ -955,16 +955,16 @@ func mergeTriggeredRuns(items []triggeredRun) triggeredRun {
 	}
 	first := items[0]
 	var b strings.Builder
-	fmt.Fprintf(&b, "【本会话合并了任务 #%d 的 %d 条触发事件，请一并处理】\n", first.taskID, len(items))
+	fmt.Fprintf(&b, "【이 대화는 작업 #%d 의 트리거 이벤트 %d 건을 병합했으니 함께 처리하세요】\n", first.taskID, len(items))
 	if h := taskContextHeader(first.taskID, first.taskDesc, first.taskGoal); h != "" {
 		fmt.Fprintf(&b, "%s\n", h) // same task → task context appears once
 	}
 	for i, it := range items {
-		fmt.Fprintf(&b, "\n── 触发 %d ──\n%s\n", i+1, it.message)
+		fmt.Fprintf(&b, "\n── 트리거 %d ──\n%s\n", i+1, it.message)
 	}
 	return triggeredRun{
 		agentKey:  first.agentKey,
-		title:     fmt.Sprintf("合并触发 · task#%d · %d 条", first.taskID, len(items)),
+		title:     fmt.Sprintf("병합 트리거 · task#%d · %d 건", first.taskID, len(items)),
 		message:   b.String(),
 		taskID:    first.taskID,
 		mergeable: true,
@@ -992,7 +992,7 @@ func mergeAllRuns(items []triggeredRun) triggeredRun {
 		groups[it.taskID] = append(groups[it.taskID], it)
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "【本会话合并了队列中的 %d 条触发事件（共 %d 个任务），请一并处理】\n", len(items), len(order))
+	fmt.Fprintf(&b, "【이 대화는 대기열의 트리거 이벤트 %d 건(작업 %d 개)을 병합했으니 함께 처리하세요】\n", len(items), len(order))
 	seq := 0
 	for _, tid := range order {
 		g := groups[tid]
@@ -1001,12 +1001,12 @@ func mergeAllRuns(items []triggeredRun) triggeredRun {
 		}
 		for _, it := range g {
 			seq++
-			fmt.Fprintf(&b, "\n── 触发 %d（task#%d）──\n%s\n", seq, tid, it.message)
+			fmt.Fprintf(&b, "\n── 트리거 %d(task#%d)──\n%s\n", seq, tid, it.message)
 		}
 	}
 	return triggeredRun{
 		agentKey:  first.agentKey,
-		title:     fmt.Sprintf("合并触发 · 全部 · %d 条", len(items)),
+		title:     fmt.Sprintf("병합 트리거 · 전체 · %d 건", len(items)),
 		message:   b.String(),
 		taskID:    first.taskID,
 		mergeable: true,
@@ -1037,7 +1037,7 @@ func (s *Server) runTriggeredRun(item triggeredRun) {
 	}
 	if err != nil || c == nil {
 		if item.conversationID > 0 {
-			_, _ = pg.Exec(`UPDATE finding_case_review_runs SET state='failed',error='整理会话不可用' WHERE conversation_id=$1`, item.conversationID)
+			_, _ = pg.Exec(`UPDATE finding_case_review_runs SET state='failed',error='정리 대화를 사용할 수 없습니다' WHERE conversation_id=$1`, item.conversationID)
 		}
 		log.Printf("[trigger] create conversation for %s failed: %v", item.agentKey, err)
 		return

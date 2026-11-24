@@ -38,7 +38,7 @@ type InterceptPending struct {
 	ToolInput      json.RawMessage `json:"tool_input"`
 	Status         string          `json:"status"`
 	DecisionSource string          `json:"decision_source"`
-	Reason         string          `json:"reason"` // 规则 message 或模型判定理由(前缀 [模型])
+	Reason         string          `json:"reason"` // 규칙 message 또는 모델 판정 이유(접두사 [모델])
 	DecidedAt      *time.Time      `json:"decided_at"`
 	CreatedAt      time.Time       `json:"created_at"`
 }
@@ -228,10 +228,10 @@ func scanInterceptApprovalRow(rows interface{ Scan(...any) error }, r *Intercept
 
 // Keep legacy rows without decision_source consistent with their displayed source.
 const approvalDecisionSource = `CASE
- WHEN ip.audit->>'decision_reason' LIKE '人工允许%' OR ip.audit->>'decision_reason' LIKE '人工拒绝%' THEN 'manual'
+ WHEN ip.audit->>'decision_reason' LIKE '人工允许%' OR ip.audit->>'decision_reason' LIKE '人工拒绝%' OR ip.audit->>'decision_reason' LIKE '수동 허용%' OR ip.audit->>'decision_reason' LIKE '수동 거부%' THEN 'manual'
  ELSE COALESCE(NULLIF(ip.decision_source,''), CASE
    WHEN ip.rule_id IS NOT NULL THEN 'rule'
-   WHEN ip.reason LIKE '[模型]%' THEN 'model' ELSE 'unknown' END)
+   WHEN ip.reason LIKE '[模型]%' OR ip.reason LIKE '[모델]%' THEN 'model' ELSE 'unknown' END)
  END`
 
 const approvalRowColumns = `ip.id, ip.rule_id, ip.conversation_id, ip.task_id, ip.agent_name,
@@ -253,7 +253,7 @@ func interceptSource(ruleID int64, reason string) string {
 	if ruleID != 0 {
 		return "rule"
 	}
-	if strings.HasPrefix(reason, "[模型]") {
+	if strings.HasPrefix(reason, "[模型]") || strings.HasPrefix(reason, "[모델]") {
 		return "model"
 	}
 	return "unknown"
@@ -362,7 +362,7 @@ func (d *DB) listInterceptsPage(taskID string, page, size int, filter InterceptA
 	if strings.HasPrefix(search, "#") {
 		id, err := strconv.ParseInt(strings.TrimPrefix(search, "#"), 10, 64)
 		if err != nil || id <= 0 {
-			return nil, 0, fmt.Errorf("审批编号必须为 # 后接正整数")
+			return nil, 0, fmt.Errorf("승인 번호는 # 뒤에 양의 정수가 와야 합니다")
 		}
 		add("ip.id", strconv.FormatInt(id, 10))
 	} else if search != "" {

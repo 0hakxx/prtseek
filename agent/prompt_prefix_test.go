@@ -55,7 +55,7 @@ func TestChatSystemKeepsPrefixStableAcrossTurns(t *testing.T) {
 
 	PromptOverride = func(key string) (string, bool) {
 		if key == "solver" {
-			return "会话开始：{{.Now}}\n当前时间：{{.NowTurn}}", true
+			return "대화 시작: {{.Now}}\n현재 시각: {{.NowTurn}}", true
 		}
 		return "", false
 	}

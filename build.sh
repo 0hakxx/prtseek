@@ -29,19 +29,19 @@ die() { printf '\033[31m[x]\033[0m %s\n' "$*" >&2; exit 1; }
 
 usage() {
   cat <<'EOF'
-用法：
-  ./build.sh                         编译当前系统当前架构
-  ./build.sh --target linux/amd64   编译一个指定目标
-  ./build.sh --release               编译并打包全部支持的目标
+사용법:
+  ./build.sh                         현재 시스템, 현재 아키텍처로 컴파일
+  ./build.sh --target linux/amd64   지정한 대상 하나를 컴파일
+  ./build.sh --release               지원하는 모든 대상을 컴파일하고 패키징
 
-选项：
-  --release              构建 Linux、macOS、Windows 的 amd64/arm64 目标并生成 zip
-  --target OS/ARCH       设置单个目标，例如 windows/amd64
-  --upx                  强制使用 UPX 压缩二进制（可能影响部分 Linux 环境兼容性）
-  --no-compress          不使用 UPX，仅使用 Go linker 裁剪并压缩 zip
-  --help                 显示帮助
+옵션:
+  --release              Linux, macOS, Windows 의 amd64/arm64 대상을 빌드하고 zip 생성
+  --target OS/ARCH       단일 대상 지정, 예: windows/amd64
+  --upx                  UPX 로 바이너리를 강제로 압축(일부 Linux 환경 호환성에 영향을 줄 수 있음)
+  --no-compress          UPX 를 쓰지 않고 Go linker 로만 줄인 뒤 zip 압축
+  --help                 도움말 표시
 
-多目标列表可通过 prtseek_TARGETS 覆盖，例如：
+다중 대상 목록은 prtseek_TARGETS 로 재정의할 수 있다. 예:
   prtseek_TARGETS=linux/amd64,windows/amd64 ./build.sh --release
 EOF
 }
@@ -74,7 +74,7 @@ while [ "$#" -gt 0 ]; do
       shift
       ;;
     --target)
-      [ "$#" -ge 2 ] || die "--target 需要 OS/ARCH 参数"
+      [ "$#" -ge 2 ] || die "--target 에는 OS/ARCH 인자가 필요합니다"
       target_arg="$2"
       case "$target_arg" in
         */*)
@@ -82,7 +82,7 @@ while [ "$#" -gt 0 ]; do
           prtseek_TARGET_ARCH="${target_arg##*/}"
           prtseek_TARGETS="$target_arg"
           ;;
-        *) die "目标必须是 OS/ARCH，例如 linux/amd64" ;;
+        *) die "대상은 OS/ARCH 형식이어야 합니다. 예: linux/amd64" ;;
       esac
       shift 2
       ;;
@@ -98,11 +98,11 @@ while [ "$#" -gt 0 ]; do
       usage
       exit 0
       ;;
-    *) die "未知参数：$1（使用 --help 查看用法）" ;;
+    *) die "알 수 없는 인자: $1 (--help 로 사용법 확인)" ;;
   esac
 done
 
-command -v go >/dev/null 2>&1 || die "未检测到 Go（项目需要 Go 1.26 或更高版本）"
+command -v go >/dev/null 2>&1 || die "Go 를 찾을 수 없습니다(이 프로젝트는 Go 1.26 이상이 필요합니다)"
 
 prtseek_GOSUMDB="${prtseek_GOSUMDB:-sum.golang.org}"
 if [ -z "${prtseek_BUILD_VERSION:-}" ]; then
@@ -129,16 +129,16 @@ else
 fi
 
 if [ "${prtseek_SKIP_FRONTEND:-0}" = "1" ]; then
-  [ -d server/webui/dist ] || die "prtseek_SKIP_FRONTEND=1 但 server/webui/dist 不存在"
+  [ -d server/webui/dist ] || die "prtseek_SKIP_FRONTEND=1 이지만 server/webui/dist 가 없습니다"
 else
-  command -v npm >/dev/null 2>&1 || die "未检测到 npm（前端静态构建需要 Node.js/npm）"
-  command -v rsync >/dev/null 2>&1 || die "未检测到 rsync"
-  info "构建前端静态资源"
+  command -v npm >/dev/null 2>&1 || die "npm 을 찾을 수 없습니다(프론트엔드 정적 빌드에는 Node.js/npm 이 필요합니다)"
+  command -v rsync >/dev/null 2>&1 || die "rsync 를 찾을 수 없습니다"
+  info "프론트엔드 정적 리소스 빌드"
   if [ "${prtseek_SKIP_NPM_CI:-0}" != "1" ]; then
     (cd web && npm ci)
   fi
   (cd web && npm run build:static)
-  info "同步前端资源到 server/webui/dist"
+  info "프론트엔드 리소스를 server/webui/dist 로 동기화"
   mkdir -p server/webui/dist
   rsync -a --delete web/out/ server/webui/dist/
 fi
@@ -148,18 +148,18 @@ compress_binary() {
   goos="$2"
   case "$prtseek_COMPRESS" in
     0|off|false|none)
-      info "跳过 UPX：$binary"
+      info "UPX 건너뜀: $binary"
       return 0
       ;;
     auto|required|true|1) ;;
-    *) die "prtseek_COMPRESS 必须是 off、auto 或 required" ;;
+    *) die "prtseek_COMPRESS 는 off, auto, required 중 하나여야 합니다" ;;
   esac
 
   if ! command -v upx >/dev/null 2>&1; then
     if [ "$prtseek_COMPRESS" = "required" ]; then
-      die "prtseek_COMPRESS=required 但未检测到 upx"
+      die "prtseek_COMPRESS=required 이지만 upx 를 찾을 수 없습니다"
     fi
-    warn "未检测到 upx，保留 linker 压缩结果：$binary"
+    warn "upx 를 찾을 수 없어 linker 압축 결과를 유지합니다: $binary"
     return 0
   fi
 
@@ -169,13 +169,13 @@ compress_binary() {
   # shellcheck disable=SC2086
   if ! upx $upx_args -- "$binary"; then
     if [ "$prtseek_COMPRESS" = "required" ]; then
-      die "UPX 压缩失败：$binary"
+      die "UPX 압축 실패: $binary"
     fi
-    warn "UPX 不支持该目标格式，保留未压缩二进制：$binary"
+    warn "UPX 가 이 대상 형식을 지원하지 않아 압축하지 않은 바이너리를 유지합니다: $binary"
     return 0
   fi
   after=$(wc -c < "$binary" | tr -d ' ')
-  ok "UPX 压缩完成：$binary (${before} -> ${after} bytes)"
+  ok "UPX 압축 완료: $binary (${before} -> ${after} bytes)"
 }
 
 package_binary() {
@@ -186,11 +186,11 @@ package_binary() {
   package_root="${prtseek_PACKAGE_DIR}/${package_name}"
   archive="${prtseek_PACKAGE_DIR}/${package_name}.zip"
 
-  command -v zip >/dev/null 2>&1 || die "打包需要 zip"
+  command -v zip >/dev/null 2>&1 || die "패키징에는 zip 이 필요합니다"
   rm -rf "$package_root" "$archive"
   mkdir -p "$package_root"
   cp "$binary" "$package_root/"
-  # 按目标系统携带守护启动脚本；个人构建保留 prtseek 版本标记并禁用上游自更新。
+  # 대상 시스템에 맞는 감시 시작 스크립트를 함께 넣는다. 개인 빌드는 prtseek 버전 표시를 유지하고 상위 프로젝트 자동 업데이트를 비활성화한다.
   if [ "$goos" = "windows" ]; then
     cp start.bat start-prtseek.cmd start-prtseek.ps1 update-prtseek.cmd "$package_root/"
   else
@@ -205,20 +205,20 @@ package_binary() {
   cp LICENSE "$package_root/"
   (cd "$prtseek_PACKAGE_DIR" && zip -q -r -9 "$(basename "$archive")" "$(basename "$package_root")")
   rm -rf "$package_root"
-  ok "Release 压缩包：$archive"
+  ok "Release 압축 패키지: $archive"
 }
 
 build_target() {
   target="$1"
   case "$target" in
     */*) ;;
-    *) die "无效目标：$target（必须是 OS/ARCH）" ;;
+    *) die "유효하지 않은 대상: $target (OS/ARCH 형식이어야 합니다)" ;;
   esac
   goos="${target%%/*}"
   goarch="${target##*/}"
   case "$goos" in
     linux|darwin|windows) ;;
-    *) die "不支持的系统：$goos（支持 linux、darwin、windows）" ;;
+    *) die "지원하지 않는 시스템: $goos (linux, darwin, windows 지원)" ;;
   esac
 
   binary_name="prtseek"
@@ -230,7 +230,7 @@ build_target() {
   fi
   mkdir -p "$(dirname "$output")"
 
-  info "编译 ${goos}/${goarch}，版本 ${prtseek_BUILD_VERSION}"
+  info "${goos}/${goarch} 컴파일, 버전 ${prtseek_BUILD_VERSION}"
   GOSUMDB="$prtseek_GOSUMDB" \
   CGO_ENABLED=0 \
   GOOS="$goos" \
@@ -247,7 +247,7 @@ build_target() {
   node scripts/build-state.mjs write "$output"
   if command -v file >/dev/null 2>&1; then file "$output"; fi
   if [ "$prtseek_PACKAGE" = "1" ]; then package_binary "$output" "$goos" "$goarch"; fi
-  ok "编译完成：$output"
+  ok "컴파일 완료: $output"
 }
 
 write_checksums() {
@@ -258,10 +258,10 @@ write_checksums() {
   elif command -v shasum >/dev/null 2>&1; then
     (cd "$prtseek_PACKAGE_DIR" && for archive in *.zip; do shasum -a 256 "$archive"; done > "$(basename "$checksum_file")")
   else
-    warn "未检测到 sha256sum 或 shasum，跳过 SHA256SUMS"
+    warn "sha256sum 이나 shasum 을 찾을 수 없어 SHA256SUMS 를 건너뜁니다"
     return 0
   fi
-  ok "校验文件：$checksum_file"
+  ok "검증 파일: $checksum_file"
 }
 
 mkdir -p "$prtseek_OUTPUT_DIR"
@@ -271,7 +271,7 @@ old_ifs="$IFS"
 IFS=','
 read -r -a targets <<< "$prtseek_TARGETS"
 IFS="$old_ifs"
-[ "${#targets[@]}" -gt 0 ] || die "prtseek_TARGETS 不能为空"
+[ "${#targets[@]}" -gt 0 ] || die "prtseek_TARGETS 는 비워 둘 수 없습니다"
 for target in "${targets[@]}"; do
   target="${target//[[:space:]]/}"
   [ -n "$target" ] || continue
@@ -280,5 +280,5 @@ done
 
 if [ "$prtseek_PACKAGE" = "1" ]; then
   write_checksums
-  info "Release 包已生成于：$prtseek_PACKAGE_DIR"
+  info "Release 패키지 생성 위치: $prtseek_PACKAGE_DIR"
 fi

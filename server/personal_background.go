@@ -62,16 +62,16 @@ func (s *Server) preparePersonalProfileChange(conversationID int64) (*db.Persona
 	}
 	t, ok := s.m.Task(strconv.FormatInt(run.TaskID, 10))
 	if !ok {
-		return nil, fmt.Errorf("关联后台任务暂不可用")
+		return nil, fmt.Errorf("연결된 백그라운드 작업을 일시적으로 사용할 수 없습니다")
 	}
 	if s.personalTaskDraining(t.ID) {
-		return nil, fmt.Errorf("后台执行或当前交互仍在收尾，请稍后再切换模型")
+		return nil, fmt.Errorf("백그라운드 실행이나 현재 상호작용이 아직 마무리 중입니다. 잠시 후 모델을 바꾸세요")
 	}
 	if !run.Active || db.IsTerminal(t.lifecycleSnapshot().Status) {
 		return nil, nil
 	}
 	if !t.lifecycleSnapshot().Paused {
-		return nil, fmt.Errorf("请先暂停后台执行，再切换模型或思考强度")
+		return nil, fmt.Errorf("먼저 백그라운드 실행을 일시 중지한 뒤 모델이나 사고 강도를 바꾸세요")
 	}
 	return run, nil
 }
@@ -89,7 +89,7 @@ func (s *Server) updatePersonalProfile(c *db.Conversation, profile *int64, effor
 	if run != nil {
 		cfg, id, ok := s.personalProfileConfig(&next)
 		if !ok || id <= 0 {
-			return fmt.Errorf("请先保存并选择可用的模型配置")
+			return fmt.Errorf("먼저 사용 가능한 모델 설정을 저장하고 선택하세요")
 		}
 		var err error
 		snapshotProfileID = id
@@ -111,7 +111,7 @@ func (s *Server) updatePersonalProfile(c *db.Conversation, profile *int64, effor
 			return err
 		}
 		if !paused || !active || db.IsTerminal(status) {
-			return fmt.Errorf("后台状态已变化，请重新确认暂停状态后再切换")
+			return fmt.Errorf("백그라운드 상태가 바뀌었습니다. 일시 중지 상태를 다시 확인한 뒤 바꾸세요")
 		}
 	}
 	// Match DeleteProfile's task -> conversation -> profile lock order.
@@ -183,7 +183,7 @@ func (s *Server) personalBackgroundResponse(run *db.PersonalBackgroundRun, since
 	}
 	t, ok := s.m.Task(strconv.FormatInt(run.TaskID, 10))
 	if !ok {
-		return out, fmt.Errorf("关联后台任务不存在")
+		return out, fmt.Errorf("연결된 백그라운드 작업이 존재하지 않습니다")
 	}
 	life := t.lifecycleSnapshot()
 	status := life.Status
@@ -266,7 +266,7 @@ func (s *Server) personalCreateBackground(w http.ResponseWriter, r *http.Request
 	}
 	req.IdempotencyKey = strings.TrimSpace(req.IdempotencyKey)
 	if req.IdempotencyKey == "" || len(req.IdempotencyKey) > 128 {
-		writeErr(w, 400, "需要有效的转换请求编号")
+		writeErr(w, 400, "유효한 전환 요청 번호가 필요합니다")
 		return
 	}
 	if prior, err := pg.PersonalBackgroundRun(c.ID, req.IdempotencyKey); err != nil {
@@ -289,7 +289,7 @@ func (s *Server) personalCreateBackground(w http.ResponseWriter, r *http.Request
 	s.chatMu.Lock()
 	if s.chatBusy[key] || s.chatBusy[controlKey] {
 		s.chatMu.Unlock()
-		writeErr(w, 409, "当前轮仍在执行，请等待本轮结束后再转后台")
+		writeErr(w, 409, "현재 턴이 아직 실행 중입니다. 이번 턴이 끝난 뒤 백그라운드로 전환하세요")
 		return
 	}
 	s.chatBusy[key] = true
@@ -300,7 +300,7 @@ func (s *Server) personalCreateBackground(w http.ResponseWriter, r *http.Request
 	// between convByID and this handoff boundary.
 	c, err := pg.GetConversation(c.ID)
 	if err != nil || c == nil {
-		writeErr(w, 409, "会话已变化，请刷新后重试")
+		writeErr(w, 409, "대화가 바뀌었습니다. 새로 고친 뒤 다시 시도하세요")
 		return
 	}
 	if latest, e := pg.PersonalBackgroundRun(c.ID, ""); e != nil {
@@ -309,12 +309,12 @@ func (s *Server) personalCreateBackground(w http.ResponseWriter, r *http.Request
 	} else if latest != nil {
 		old, exists := s.m.Task(strconv.FormatInt(latest.TaskID, 10))
 		if exists && (!db.IsTerminal(old.lifecycleSnapshot().Status) || s.personalTaskDraining(old.ID)) {
-			writeErr(w, 409, "已有后台执行尚未结束或正在收尾，请稍候再试")
+			writeErr(w, 409, "이미 끝나지 않았거나 마무리 중인 백그라운드 실행이 있습니다. 잠시 후 다시 시도하세요")
 			return
 		}
 	}
 	if s.resolveChatAgent(c) == nil {
-		writeErr(w, 400, "请先配置可用模型")
+		writeErr(w, 400, "먼저 사용 가능한 모델을 설정하세요")
 		return
 	}
 	goal := strings.TrimSpace(req.Goal)
@@ -322,7 +322,7 @@ func (s *Server) personalCreateBackground(w http.ResponseWriter, r *http.Request
 		_ = pg.QueryRow(`SELECT COALESCE(NULLIF(detail,''),summary) FROM conversation_activities WHERE conversation_id=$1 AND kind='user' ORDER BY id DESC LIMIT 1`, c.ID).Scan(&goal)
 	}
 	if goal == "" || len([]rune(goal)) > 12000 {
-		writeErr(w, 400, "请填写明确的后台目标（最多 12000 字）")
+		writeErr(w, 400, "명확한 백그라운드 목표를 입력하세요(최대 12000 자)")
 		return
 	}
 	seconds := 3600
@@ -330,7 +330,7 @@ func (s *Server) personalCreateBackground(w http.ResponseWriter, r *http.Request
 		seconds = *req.TimeoutSeconds
 	}
 	if seconds < 60 || seconds > 86400 {
-		writeErr(w, 400, "运行上限须为 60–86400 秒")
+		writeErr(w, 400, "실행 상한은 60–86400 초여야 합니다")
 		return
 	}
 	checkpoint, cursor, err := s.personalCheckpoint(c, req.IdempotencyKey, goal)
@@ -345,7 +345,7 @@ func (s *Server) personalCreateBackground(w http.ResponseWriter, r *http.Request
 	}
 	var snap personalRunSnapshot
 	if err := json.Unmarshal(snapshot, &snap); err != nil || snap.ProfileID <= 0 {
-		writeErr(w, 400, "后台模型快照无效")
+		writeErr(w, 400, "백그라운드 모델 스냅샷이 유효하지 않습니다")
 		return
 	}
 	profiles := []int64{snap.ProfileID}
@@ -361,7 +361,7 @@ func (s *Server) personalCreateBackground(w http.ResponseWriter, r *http.Request
 		}
 	}
 	if errors.Is(err, db.ErrPersonalBackgroundActive) {
-		writeErr(w, 409, "此会话已有后台任务，请先完成或停止该任务")
+		writeErr(w, 409, "이 대화에는 이미 백그라운드 작업이 있습니다. 먼저 그 작업을 완료하거나 중지하세요")
 		return
 	}
 	if err != nil {
@@ -376,10 +376,10 @@ func (s *Server) personalCreateBackground(w http.ResponseWriter, r *http.Request
 	if err = s.personalApplyBackgroundSettings(t, run); err != nil {
 		_ = s.m.ApplyTaskPauseOrigin(t.ID, false)
 		_ = pg.SetPersonalBackgroundState(run.ID, "needs_review", true)
-		writeErr(w, 500, "任务已保存并暂停："+err.Error())
+		writeErr(w, 500, "작업을 저장하고 일시 중지했습니다: "+err.Error())
 		return
 	}
-	_, _ = pg.AppendConvActivity(c.ID, db.Activity{Worker: c.AgentKey, Kind: "text", Summary: s.personalBackgroundNotice(c, "已转为后台持续执行，原会话记录与工作文件已保留。", "Background execution started. Your conversation history and working files are preserved."), Detail: s.personalBackgroundNotice(c, "后台任务 #"+t.ID+" 已接收当前目标、会话检查点和文件位置。可在本会话查看进展、补充要求或暂停。", "Background task #"+t.ID+" received your goal, conversation checkpoint and file locations. You can view progress, add instructions or pause it in this conversation.")})
+	_, _ = pg.AppendConvActivity(c.ID, db.Activity{Worker: c.AgentKey, Kind: "text", Summary: s.personalBackgroundNotice(c, "백그라운드 지속 실행으로 전환했습니다. 원래 대화 기록과 작업 파일은 보존되었습니다.", "Background execution started. Your conversation history and working files are preserved."), Detail: s.personalBackgroundNotice(c, "백그라운드 작업 #"+t.ID+" 가 현재 목표, 대화 체크포인트, 파일 위치를 받았습니다. 이 대화에서 진행 상황을 보거나, 요구를 추가하거나, 일시 중지할 수 있습니다.", "Background task #"+t.ID+" received your goal, conversation checkpoint and file locations. You can view progress, add instructions or pause it in this conversation.")})
 	_ = pg.TouchConversation(c.ID)
 	s.launchTask(t, goal, false)
 	out, err := s.personalBackgroundResponse(run, 0)
@@ -476,7 +476,7 @@ func (s *Server) personalControlBackground(w http.ResponseWriter, r *http.Reques
 	s.chatMu.Lock()
 	if s.chatBusy[controlKey] {
 		s.chatMu.Unlock()
-		writeErr(w, 409, "后台状态正在切换，请稍候再试")
+		writeErr(w, 409, "백그라운드 상태를 전환하는 중입니다. 잠시 후 다시 시도하세요")
 		return
 	}
 	s.chatBusy[controlKey] = true
@@ -484,7 +484,7 @@ func (s *Server) personalControlBackground(w http.ResponseWriter, r *http.Reques
 	defer func() { s.chatMu.Lock(); delete(s.chatBusy, controlKey); s.chatMu.Unlock() }()
 	c, err := pg.GetConversation(c.ID)
 	if err != nil || c == nil {
-		writeErr(w, 409, "会话已变化，请刷新后重试")
+		writeErr(w, 409, "대화가 바뀌었습니다. 새로 고친 뒤 다시 시도하세요")
 		return
 	}
 	run, err := pg.PersonalBackgroundRun(c.ID, "")
@@ -493,12 +493,12 @@ func (s *Server) personalControlBackground(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if run == nil {
-		writeErr(w, 404, "没有关联的后台任务")
+		writeErr(w, 404, "연결된 백그라운드 작업이 없습니다")
 		return
 	}
 	t, ok := s.m.Task(strconv.FormatInt(run.TaskID, 10))
 	if !ok {
-		writeErr(w, 404, "后台任务不存在")
+		writeErr(w, 404, "백그라운드 작업이 존재하지 않습니다")
 		return
 	}
 	switch req.Action {
@@ -506,11 +506,11 @@ func (s *Server) personalControlBackground(w http.ResponseWriter, r *http.Reques
 		_, err = s.applyTaskControl(t, "pause")
 	case "resume":
 		if !run.Active || db.IsTerminal(t.lifecycleSnapshot().Status) {
-			writeErr(w, 409, "此执行已结束，请重新转后台开始新执行")
+			writeErr(w, 409, "이 실행은 끝났습니다. 다시 백그라운드로 전환해 새 실행을 시작하세요")
 			return
 		}
 		if !t.lifecycleSnapshot().Paused {
-			writeErr(w, 409, "任务当前未暂停")
+			writeErr(w, 409, "작업이 현재 일시 중지되어 있지 않습니다")
 			return
 		}
 		// Reserve both message lanes before changing the runtime snapshot. A
@@ -519,7 +519,7 @@ func (s *Server) personalControlBackground(w http.ResponseWriter, r *http.Reques
 		s.chatMu.Lock()
 		if s.chatBusy[convKey] || s.chatBusy[t.ID] {
 			s.chatMu.Unlock()
-			writeErr(w, 409, "当前交互仍在执行，请稍候再恢复")
+			writeErr(w, 409, "현재 상호작용이 아직 실행 중입니다. 잠시 후 재개하세요")
 			return
 		}
 		s.chatBusy[convKey], s.chatBusy[t.ID] = true, true
@@ -528,7 +528,7 @@ func (s *Server) personalControlBackground(w http.ResponseWriter, r *http.Reques
 		// No request may swap runtime settings while a cancelled tool or model
 		// call is still draining. A later retry can safely use the next settings.
 		if s.engine.ActiveLLMCalls(t.ID) > 0 || s.engine.inflightCount(t.ID) > 0 {
-			writeErr(w, 409, "上一轮正在收尾，请稍候再恢复")
+			writeErr(w, 409, "이전 턴이 마무리 중입니다. 잠시 후 재개하세요")
 			return
 		}
 		snapshot, e := s.personalBackgroundSnapshot(c)
@@ -549,7 +549,7 @@ func (s *Server) personalControlBackground(w http.ResponseWriter, r *http.Reques
 		}
 	case "stop":
 		if db.IsTerminal(t.lifecycleSnapshot().Status) && run.State != "stopped" {
-			writeErr(w, 409, "此执行已经结束")
+			writeErr(w, 409, "이 실행은 이미 끝났습니다")
 			return
 		}
 		if !db.IsTerminal(t.lifecycleSnapshot().Status) {
@@ -558,7 +558,7 @@ func (s *Server) personalControlBackground(w http.ResponseWriter, r *http.Reques
 				var won bool
 				won, err = s.m.SetTaskStatusGuarded(t.ID, "failed")
 				if err == nil && !won {
-					writeErr(w, 409, "此执行已经结束")
+					writeErr(w, 409, "이 실행은 이미 끝났습니다")
 					return
 				}
 			}
@@ -567,7 +567,7 @@ func (s *Server) personalControlBackground(w http.ResponseWriter, r *http.Reques
 			err = pg.SetPersonalBackgroundState(run.ID, "stopped", false)
 		}
 	default:
-		writeErr(w, 400, "操作须为 pause、resume 或 stop")
+		writeErr(w, 400, "작업은 pause, resume 또는 stop 이어야 합니다")
 		return
 	}
 	if err != nil {
@@ -575,12 +575,12 @@ func (s *Server) personalControlBackground(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if req.Action == "pause" || req.Action == "resume" || req.Action == "stop" {
-		zh, en := "已请求暂停后台执行；正在执行的步骤结束后将保持暂停。", "Background pause requested. The task will remain paused after active operations finish."
+		zh, en := "백그라운드 실행 일시 중지를 요청했습니다. 실행 중인 단계가 끝난 뒤 일시 중지 상태를 유지합니다.", "Background pause requested. The task will remain paused after active operations finish."
 		if req.Action == "resume" {
-			zh, en = "已恢复后台持续执行。", "Background execution resumed."
+			zh, en = "백그라운드 지속 실행을 재개했습니다.", "Background execution resumed."
 		}
 		if req.Action == "stop" {
-			zh, en = "已停止本次后台执行，现有结果与文件已保留。", "This background run has stopped. Existing results and files are preserved."
+			zh, en = "이번 백그라운드 실행을 중지했습니다. 기존 결과와 파일은 보존되었습니다.", "This background run has stopped. Existing results and files are preserved."
 		}
 		_, _ = pg.AppendConvActivity(c.ID, db.Activity{Worker: c.AgentKey, Kind: "text", Summary: s.personalBackgroundNotice(c, zh, en)})
 		_ = pg.TouchConversation(c.ID)
@@ -614,12 +614,12 @@ func (s *Server) personalBackgroundDetail(w http.ResponseWriter, r *http.Request
 		return
 	}
 	if run == nil {
-		writeErr(w, 404, "没有后台任务")
+		writeErr(w, 404, "백그라운드 작업이 없습니다")
 		return
 	}
 	t, ok := s.m.Task(strconv.FormatInt(run.TaskID, 10))
 	if !ok {
-		writeErr(w, 404, "后台任务不存在")
+		writeErr(w, 404, "백그라운드 작업이 존재하지 않습니다")
 		return
 	}
 	detail, err := t.Store.ActivityDetail(seq)
@@ -638,7 +638,7 @@ func (s *Server) runPersonalBackgroundMessage(ctx context.Context, c *db.Convers
 		_, _ = s.m.pg.AppendConvActivity(c.ID, db.Activity{Kind: "text", IsError: isError, Summary: s.personalBackgroundNotice(c, zh, en)})
 	}
 	if err != nil {
-		notice("无法核对后台任务状态，本轮没有启动新的执行。", "The background state could not be checked. No new execution was started.", true)
+		notice("백그라운드 작업 상태를 확인할 수 없어 이번 턴에 새 실행을 시작하지 않았습니다.", "The background state could not be checked. No new execution was started.", true)
 		return true
 	}
 	if run == nil {
@@ -646,12 +646,12 @@ func (s *Server) runPersonalBackgroundMessage(ctx context.Context, c *db.Convers
 	}
 	t, ok := s.m.Task(strconv.FormatInt(run.TaskID, 10))
 	if !ok {
-		notice("关联任务暂不可用，本轮没有启动新的执行。", "The linked task is unavailable. No new execution was started.", true)
+		notice("연결된 작업을 일시적으로 사용할 수 없어 이번 턴에 새 실행을 시작하지 않았습니다.", "The linked task is unavailable. No new execution was started.", true)
 		return true
 	}
 	if !run.Active || db.IsTerminal(t.lifecycleSnapshot().Status) {
 		if s.personalTaskDraining(t.ID) {
-			notice("上一项后台执行正在收尾，请稍候再开始新工作。", "The previous background run is still finishing. Please wait before starting new work.", false)
+			notice("이전 백그라운드 실행이 마무리 중입니다. 새 작업을 시작하기 전에 잠시 기다리세요.", "The previous background run is still finishing. Please wait before starting new work.", false)
 			return true
 		}
 		if run.Active {
@@ -660,7 +660,7 @@ func (s *Server) runPersonalBackgroundMessage(ctx context.Context, c *db.Convers
 		return false
 	}
 	if !s.taskRuntimeAvailable(t, "mainagent") {
-		notice("后台任务模型暂不可用，请检查模型配置后继续。", "The background model is unavailable. Please check your model settings before continuing.", true)
+		notice("백그라운드 작업 모델을 일시적으로 사용할 수 없습니다. 모델 설정을 확인한 뒤 계속하세요.", "The background model is unavailable. Please check your model settings before continuing.", true)
 		return true
 	}
 	// Keep the task's own chat lane exclusive, even if a legacy detail view is
@@ -668,7 +668,7 @@ func (s *Server) runPersonalBackgroundMessage(ctx context.Context, c *db.Convers
 	s.chatMu.Lock()
 	if s.chatBusy[t.ID] || s.engine.IsDeleting(t.ID) {
 		s.chatMu.Unlock()
-		notice("此任务正在处理上一条交互或删除，请稍候再试。", "This task is processing another message or being removed. Please try again shortly.", false)
+		notice("이 작업은 이전 상호작용을 처리 중이거나 삭제 중입니다. 잠시 후 다시 시도하세요.", "This task is processing another message or being removed. Please try again shortly.", false)
 		return true
 	}
 	s.chatBusy[t.ID] = true
@@ -700,7 +700,7 @@ func (s *Server) runPersonalBackgroundMessage(ctx context.Context, c *db.Convers
 	defer s.engine.EndLLMCall(t.ID)
 	_, err = ma.Chat(ctx, run.TaskID, seg, s.m.Assets(), t.Store, t.Goal, msg, emit, t.Notify, nil, t.NotifyGoal, t.NotifyHint)
 	if err != nil && ctx.Err() == nil {
-		emit(db.Activity{Kind: "text", IsError: true, Summary: s.personalBackgroundNotice(c, "后台交互失败：", "Background interaction failed: ") + err.Error()})
+		emit(db.Activity{Kind: "text", IsError: true, Summary: s.personalBackgroundNotice(c, "백그라운드 상호작용 실패: ", "Background interaction failed: ") + err.Error()})
 	}
 	_ = s.m.pg.TouchConversation(c.ID)
 	return true

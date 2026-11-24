@@ -54,13 +54,13 @@ func newObservedWebFetch(proxy, ca string) actool.CoreTool {
 	return &observedWebFetch{CoreTool: actool.NewWebFetch(actool.WebFetchConfig{Proxy: proxy, CACert: ca}), proxy: proxy, ca: ca}
 }
 func (t *observedWebFetch) Description() string {
-	return "读取 HTTP(S) 页面/API；返回重定向链、最终 URL、状态、耗时、已读取响应长度/SHA256和有界正文。默认去除 HTML 导航/脚本噪声，原始响应保存在本会话 .research/http；extract=true 保留表单、链接、脚本引用和注释。HTTP 200 不等于目标达成。失败不会静默切换出口。"
+	return "HTTP(S) 페이지/API 를 읽는다. 리디렉션 체인, 최종 URL, 상태, 소요 시간, 읽은 응답 길이/SHA256, 제한된 본문을 반환한다. 기본적으로 HTML 내비게이션/스크립트 잡음을 제거하며, 원본 응답은 이 대화의 .research/http 에 저장된다. extract=true 면 폼, 링크, 스크립트 참조, 주석을 유지한다. HTTP 200 이 목표 달성을 뜻하지는 않는다. 실패해도 출구를 조용히 바꾸지 않는다."
 }
 func (t *observedWebFetch) Prompt() string { return t.Description() }
 func (t *observedWebFetch) InputSchema() map[string]any {
 	return map[string]any{"type": "object", "properties": map[string]any{
 		"url": map[string]any{"type": "string"}, "extract": map[string]any{"type": "boolean"},
-		"max_chars": map[string]any{"type": "integer", "minimum": 500, "maximum": 12000, "description": "正文字符预算，默认8000；超出部分读取 body_file"},
+		"max_chars": map[string]any{"type": "integer", "minimum": 500, "maximum": 12000, "description": "본문 글자 수 예산, 기본 8000. 초과분은 body_file 에서 읽는다"},
 	}, "required": []string{"url"}}
 }
 func (t *observedWebFetch) client() (*http.Client, error) {
@@ -76,14 +76,14 @@ func (t *observedWebFetch) client() (*http.Client, error) {
 	if t.ca != "" {
 		pem, err := os.ReadFile(t.ca)
 		if err != nil {
-			return nil, fmt.Errorf("读取配置 CA 失败: %w", err)
+			return nil, fmt.Errorf("설정된 CA 를 읽지 못했습니다: %w", err)
 		}
 		pool, _ := x509.SystemCertPool()
 		if pool == nil {
 			pool = x509.NewCertPool()
 		}
 		if !pool.AppendCertsFromPEM(pem) {
-			return nil, fmt.Errorf("配置 CA 不含有效 PEM 证书")
+			return nil, fmt.Errorf("설정된 CA 에 유효한 PEM 인증서가 없습니다")
 		}
 		tr.TLSClientConfig = &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS12}
 	}
@@ -100,7 +100,7 @@ func (t *observedWebFetch) Call(ctx context.Context, raw json.RawMessage, tc *ac
 	}
 	u, err := url.Parse(in.URL)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil {
-		return actool.Errorf("需要不含用户名/密码的 HTTP(S) URL"), nil
+		return actool.Errorf("사용자 이름/비밀번호가 포함되지 않은 HTTP(S) URL 이 필요합니다"), nil
 	}
 	if in.MaxChars == 0 {
 		in.MaxChars = 8000
@@ -108,7 +108,7 @@ func (t *observedWebFetch) Call(ctx context.Context, raw json.RawMessage, tc *ac
 	in.MaxChars = max(500, min(in.MaxChars, 12000))
 	client, err := t.client()
 	if err != nil {
-		return actool.Errorf(fmt.Sprintf("HTTP 配置错误: %v", err)), nil
+		return actool.Errorf(fmt.Sprintf("HTTP 설정 오류: %v", err)), nil
 	}
 	defer client.CloseIdleConnections()
 	o := httpObservation{OriginalURL: in.URL, FinalURL: in.URL, Redirects: []httpRedirect{}, Route: "direct"}
@@ -156,7 +156,7 @@ func (t *observedWebFetch) Call(ctx context.Context, raw json.RawMessage, tc *ac
 	}
 	if readErr != nil {
 		o.BodyTruncated = true
-		o.Note = "响应读取中断: " + readErr.Error()
+		o.Note = "응답 읽기 중단: " + readErr.Error()
 	}
 	o.BodyBytes = len(body)
 	digest := sha256.Sum256(body)
@@ -183,7 +183,7 @@ func (t *observedWebFetch) Call(ctx context.Context, raw json.RawMessage, tc *ac
 			}
 		}
 		if openErr != nil {
-			o.Note += " 原始响应保存失败: " + openErr.Error()
+			o.Note += " 원본 응답 저장 실패: " + openErr.Error()
 		}
 	}
 	text := string(body)
@@ -197,14 +197,14 @@ func (t *observedWebFetch) Call(ctx context.Context, raw json.RawMessage, tc *ac
 	}
 	o.Content = text
 	if strings.TrimSpace(text) == "" {
-		o.Note += " 空正文；HTTP 状态不能作为成功证据。"
+		o.Note += " 본문이 비어 있음. HTTP 상태를 성공 증거로 삼을 수 없다."
 	}
 	lower := strings.ToLower(text)
 	if strings.Contains(lower, "captcha") || strings.Contains(lower, "verify you are human") || strings.Contains(lower, "unusual traffic") {
-		o.Note += " 页面可能是验证/限流页；核对最终 URL 和正文。搜索无有效结果时换精确关键词或来源，不重复读取同一页面。"
+		o.Note += " 인증/속도 제한 페이지일 수 있다. 최종 URL 과 본문을 확인할 것. 검색에 유효한 결과가 없으면 더 정확한 키워드나 다른 출처로 바꾸고, 같은 페이지를 반복해서 읽지 않는다."
 	}
 	if o.BodyTruncated {
-		o.Note += " 长度和 SHA256 仅对应已保存前缀，不是完整响应。"
+		o.Note += " 길이와 SHA256 은 저장된 앞부분에만 해당하며 전체 응답이 아니다."
 	}
 	encoded, _ := json.Marshal(o)
 	return actool.Result{Content: []llm.ContentBlock{llm.TextBlock(string(encoded))}, IsError: resp.StatusCode >= 400 || readErr != nil}, nil

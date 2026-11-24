@@ -75,13 +75,13 @@ func NormalizeIntelligence(in IntelligenceInput) (IntelligenceInput, error) {
 	in.Content = strings.TrimSpace(in.Content)
 	in.Evidence = strings.TrimSpace(in.Evidence)
 	if in.Title == "" || in.Content == "" || in.Evidence == "" {
-		return in, fmt.Errorf("%w: title/content/evidence 不能为空", ErrIntelligenceInvalid)
+		return in, fmt.Errorf("%w: title/content/evidence 는 비워 둘 수 없습니다", ErrIntelligenceInvalid)
 	}
 	if utf8.RuneCountInString(in.Title) > 200 || len(in.Content) > 32768 || len(in.Evidence) > 8192 || len(in.AssetIDs) > 100 {
-		return in, fmt.Errorf("%w: 情报内容过长或关联资产过多", ErrIntelligenceInvalid)
+		return in, fmt.Errorf("%w: 정보 내용이 너무 길거나 연결된 자산이 너무 많습니다", ErrIntelligenceInvalid)
 	}
 	if in.Confidence != "observed" && in.Confidence != "inferred" {
-		return in, fmt.Errorf("%w: confidence 必须为 observed/inferred", ErrIntelligenceInvalid)
+		return in, fmt.Errorf("%w: confidence 는 observed/inferred 여야 합니다", ErrIntelligenceInvalid)
 	}
 	if in.Status == "" {
 		switch in.Kind {
@@ -94,16 +94,16 @@ func NormalizeIntelligence(in IntelligenceInput) (IntelligenceInput, error) {
 		}
 	}
 	if !ValidIntelligenceStatus(in.Kind, in.Status) {
-		return in, fmt.Errorf("%w: 类别或状态无效", ErrIntelligenceInvalid)
+		return in, fmt.Errorf("%w: 분류나 상태가 유효하지 않습니다", ErrIntelligenceInvalid)
 	}
 	if in.Confidence == "inferred" && (in.Status == "verified" || in.Status == "confirmed") {
-		return in, fmt.Errorf("%w: 推测不能标记为验证成功", ErrIntelligenceInvalid)
+		return in, fmt.Errorf("%w: 추측은 검증 성공으로 표시할 수 없습니다", ErrIntelligenceInvalid)
 	}
 	seen := map[int64]bool{}
 	ids := []int64{}
 	for _, id := range in.AssetIDs {
 		if id <= 0 {
-			return in, fmt.Errorf("%w: asset_ids 必须为正整数", ErrIntelligenceInvalid)
+			return in, fmt.Errorf("%w: asset_ids 는 양의 정수여야 합니다", ErrIntelligenceInvalid)
 		}
 		if !seen[id] {
 			seen[id] = true
@@ -191,7 +191,7 @@ func (d *DB) RecordIntelligence(ctx context.Context, taskID, nodeID int64, worke
 	if nodeID > 0 {
 		err = tx.QueryRowContext(ctx, `SELECT n.id FROM exploration_nodes n JOIN tasks t ON t.exploration_id=n.exploration_id WHERE t.id=$1 AND n.id=$2`, taskID, nodeID).Scan(&found)
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, fmt.Errorf("%w: 来源节点不属于当前任务", ErrIntelligenceInvalid)
+			return nil, fmt.Errorf("%w: 출처 노드가 현재 작업에 속하지 않습니다", ErrIntelligenceInvalid)
 		}
 		if err != nil {
 			return nil, err
@@ -204,7 +204,7 @@ func (d *DB) RecordIntelligence(ctx context.Context, taskID, nodeID int64, worke
 			return nil, err
 		}
 		if count != len(in.AssetIDs) {
-			return nil, fmt.Errorf("%w: 关联资产不存在", ErrIntelligenceInvalid)
+			return nil, fmt.Errorf("%w: 연결된 자산이 존재하지 않습니다", ErrIntelligenceInvalid)
 		}
 	}
 	assets, _ := json.Marshal(in.AssetIDs)
@@ -299,7 +299,7 @@ func (d *DB) UpdateIntelligenceStatus(ctx context.Context, taskID, id int64, sta
 		return ErrIntelligenceNotFound
 	}
 	if !ValidIntelligenceStatus(item.Kind, status) {
-		return fmt.Errorf("%w: 状态无效", ErrIntelligenceInvalid)
+		return fmt.Errorf("%w: 상태가 유효하지 않습니다", ErrIntelligenceInvalid)
 	}
 	result, err := d.ExecContext(ctx, `UPDATE task_intelligence SET status=$3,updated_at=(strftime('%Y-%m-%d %H:%M:%f','now')) WHERE id=$1 AND task_id=$2 AND EXISTS(SELECT 1 FROM tasks WHERE tasks.id=$2 AND deleted_at IS NULL)`, id, taskID, status)
 	if err != nil {

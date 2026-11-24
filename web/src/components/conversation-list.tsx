@@ -32,13 +32,13 @@ export function ConversationList({
   async function change(item: Conversation, kind: "rename" | "pin" | "delete") {
     let title: string | null = null;
     if (kind === "rename") {
-      title = window.prompt("重命名会话", item.title);
+      title = window.prompt("대화 이름 변경", item.title);
       if (!title?.trim()) return;
     }
     if (
       kind === "delete" &&
       !window.confirm(
-        `删除会话「${item.title || "未命名会话"}」及其历史记录？${item.running ? "该会话正在运行，删除也会停止运行。" : ""}`,
+        `대화「${item.title || "이름 없는 대화"}」와 그 이력을 삭제하시겠습니까?${item.running ? "이 대화는 실행 중이며, 삭제하면 실행도 중지됩니다." : ""}`,
       )
     )
       return;
@@ -58,14 +58,14 @@ export function ConversationList({
     `${item.title} ${item.agent_key}`.toLowerCase().includes(query.trim().toLowerCase()),
   );
   return (
-    <aside className="conversation-sidebar" aria-label="会话管理">
+    <aside className="conversation-sidebar" aria-label="세션 관리">
       <div className="space-y-3 border-b p-3">
         <div className="flex items-center justify-between">
-          <h2 className="font-mono text-sm">会话管理</h2>
+          <h2 className="font-mono text-sm">세션 관리</h2>
           <Button
             variant="ghost"
             size="icon"
-            aria-label="刷新会话列表"
+            aria-label="세션 목록 새로 고침"
             disabled={loading}
             onClick={() => void onReload()}
           >
@@ -73,11 +73,11 @@ export function ConversationList({
           </Button>
         </div>
         <Button className="w-full" onClick={onNew} disabled={loading}>
-          <Plus /> 新对话
+          <Plus /> 새 대화
         </Button>
         <Input
-          aria-label="搜索会话"
-          placeholder="搜索会话、Agent…"
+          aria-label="세션 검색"
+          placeholder="세션, Agent 검색…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
@@ -85,16 +85,16 @@ export function ConversationList({
       <div className="min-h-0 flex-1 overflow-y-auto p-2">
         {error && (
           <p role="alert" className="p-2 text-destructive">
-            会话加载失败：{error}
+            세션 로드 실패: {error}
           </p>
         )}
         {loading && (
           <p role="status" className="p-2 text-muted-foreground">
-            正在加载会话…
+            세션을 불러오는 중…
           </p>
         )}
         {!loading && !error && filtered.length === 0 && (
-          <p className="p-2 text-muted-foreground">{query ? "没有匹配的会话" : "暂无历史会话"}</p>
+          <p className="p-2 text-muted-foreground">{query ? "일치하는 세션이 없습니다" : "과거 세션이 없습니다"}</p>
         )}
         {filtered.map((item) => (
           <div key={item.id} className="conversation-entry" data-active={selectedId === item.id}>
@@ -106,10 +106,10 @@ export function ConversationList({
             >
               <span className="block truncate font-medium">
                 {item.pinned && "★ "}
-                {item.title || "未命名会话"}
+                {item.title || "이름 없는 세션"}
               </span>
               <span className="mt-1 block truncate text-xs text-muted-foreground">
-                {item.agent_key} · {item.running ? "运行中" : "已保存"}
+                {item.agent_key} · {item.running ? "실행 중" : "저장됨"}
               </span>
             </button>
             <div className="flex justify-end gap-1 px-2 pb-2">
@@ -117,7 +117,7 @@ export function ConversationList({
                 variant="ghost"
                 size="icon-xs"
                 disabled={busy !== undefined}
-                aria-label={`${item.pinned ? "取消置顶" : "置顶"}：${item.title}`}
+                aria-label={`${item.pinned ? "고정 해제" : "고정"}: ${item.title}`}
                 onClick={() => void change(item, "pin")}
               >
                 <Pin />
@@ -126,7 +126,7 @@ export function ConversationList({
                 variant="ghost"
                 size="icon-xs"
                 disabled={busy !== undefined}
-                aria-label={`重命名：${item.title}`}
+                aria-label={`이름 변경: ${item.title}`}
                 onClick={() => void change(item, "rename")}
               >
                 <Pencil />
@@ -135,7 +135,7 @@ export function ConversationList({
                 variant="ghost"
                 size="icon-xs"
                 disabled={busy !== undefined}
-                aria-label={`删除：${item.title}`}
+                aria-label={`삭제: ${item.title}`}
                 onClick={() => void change(item, "delete")}
               >
                 <Trash2 />

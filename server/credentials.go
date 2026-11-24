@@ -29,7 +29,7 @@ func (s *Server) seedCredentialProcessor() {
 		return
 	}
 	if a == nil {
-		a, err = s.m.pg.CreateAgent(db.CredentialAgentKey, "凭据整理", "Agent 开关控制的凭据整理：拆分账号、密码、Token、Cookie，仅分析已上报内容，不主动登录。可独立绑定模型；每条最多一次模型调用。")
+		a, err = s.m.pg.CreateAgent(db.CredentialAgentKey, "자격 증명 정리", "Agent 스위치로 제어되는 자격 증명 정리: 계정, 비밀번호, Token, Cookie 를 나누며, 이미 보고된 내용만 분석하고 능동적으로 로그인하지 않는다. 모델을 독립적으로 바인딩할 수 있으며, 한 건당 모델 호출은 최대 한 번이다.")
 		if err != nil {
 			return
 		}
@@ -120,7 +120,7 @@ func (s *Server) processCredentialJob(parent context.Context, item *db.Intellige
 			}
 			if !ok {
 				result.State = "error"
-				result.Error = "未配置可用模型，请在 Agent 配置中为凭据整理选择模型，或激活全局模型后重试"
+				result.Error = "사용 가능한 모델이 설정되지 않았습니다. Agent 설정에서 자격 증명 정리에 모델을 고르거나, 전역 모델을 활성화한 뒤 다시 시도하세요"
 			} else {
 				prompt := agent.CredentialProcessorPrompt
 				if a, err := s.m.pg.GetAgentByKey(db.CredentialAgentKey); err == nil && a != nil {
@@ -146,10 +146,10 @@ func (s *Server) processCredentialJob(parent context.Context, item *db.Intellige
 		result.SourceHash = sourceHash
 	}
 	if result.State == "ready" && len(result.Accounts) == 100 {
-		result.Note = "单条最多整理 100 组凭据，完整信息仍可在原始上报中查看"
+		result.Note = "한 건당 자격 증명은 최대 100 그룹까지 정리하며, 전체 정보는 원래 보고에서 계속 볼 수 있습니다"
 	}
 	if result.State == "ready" && len(result.Accounts) == 0 {
-		result.Note = "未识别到可独立展示的凭据，原文已保留"
+		result.Note = "독립적으로 표시할 수 있는 자격 증명을 인식하지 못했으며, 원문은 보존했습니다"
 	}
 	if result.State == "ready" && s.m.pg.GetBool(db.SettingCredentialTraffic, false) && ctx.Err() == nil {
 		matched, state, note := s.matchCredentialTraffic(ctx, item, result.Accounts)
@@ -169,7 +169,7 @@ func (s *Server) processCredentialJob(parent context.Context, item *db.Intellige
 		if len(merged) > 0 {
 			result.TrafficState = "ready"
 			if len(matched) == 0 {
-				result.TrafficNote = "既有流量引用与匹配片段已保留；原始流量可能已删除或暂不可用"
+				result.TrafficNote = "기존 트래픽 참조와 일치 조각은 보존했습니다. 원본 트래픽은 삭제되었거나 일시적으로 사용할 수 없을 수 있습니다"
 			}
 		}
 	} else if !s.m.pg.GetBool(db.SettingCredentialTraffic, false) {
@@ -177,7 +177,7 @@ func (s *Server) processCredentialJob(parent context.Context, item *db.Intellige
 	}
 	if ctx.Err() != nil && result.State == "ready" {
 		result.State = "error"
-		result.Error = "整理已中断，原始内容保留，可手动重试"
+		result.Error = "정리가 중단되었습니다. 원본 내용은 보존했으니 수동으로 다시 시도할 수 있습니다"
 	}
 	// Use a fresh bounded persistence context so cancellation can release the lease.
 	finish, stop := context.WithTimeout(context.Background(), 5*time.Second)
@@ -288,11 +288,11 @@ func credentialExcerpt(raw string, accounts []db.CredentialAccount) string {
 func (s *Server) matchCredentialTraffic(ctx context.Context, item *db.Intelligence, accounts []db.CredentialAccount) ([]db.CredentialTraffic, string, string) {
 	bound := []db.CredentialTraffic{}
 	if s.m.traffic == nil {
-		return bound, "unavailable", "未启用流量采集或没有可用的流量存储"
+		return bound, "unavailable", "트래픽 수집이 활성화되지 않았거나 사용 가능한 트래픽 저장소가 없습니다"
 	}
 	hosts := s.credentialHosts(item)
 	if len(hosts) == 0 {
-		return bound, "unavailable", "没有可核对的关联资产或 URL，未猜测流量归属"
+		return bound, "unavailable", "대조할 수 있는 연결된 자산이나 URL 이 없어 트래픽 귀속을 추측하지 않았습니다"
 	}
 	seen := map[string]bool{}
 	inspected, queries := 0, 0
@@ -368,17 +368,17 @@ func (s *Server) matchCredentialTraffic(ctx context.Context, item *db.Intelligen
 		}
 	}
 	if ctx.Err() != nil {
-		return bound, "error", "流量核对已中断，可手动重试"
+		return bound, "error", "트래픽 대조가 중단되었습니다. 수동으로 다시 시도할 수 있습니다"
 	}
 	if len(bound) == 0 {
-		return bound, "none", "未找到包含匹配凭据的已抓取流量；不会据此改变凭据验证状态"
+		return bound, "none", "일치하는 자격 증명을 담은 캡처된 트래픽을 찾지 못했습니다. 이를 근거로 자격 증명 검증 상태를 바꾸지 않습니다"
 	}
-	return bound, "ready", "已核对资产域名及凭据原文；保存流量引用与片段，原始流量删除后仍可查看片段"
+	return bound, "ready", "자산 도메인과 자격 증명 원문을 대조했습니다. 트래픽 참조와 조각을 저장했으며, 원본 트래픽이 삭제되어도 조각은 계속 볼 수 있습니다"
 }
 
 func (s *Server) retryCredentials(w http.ResponseWriter, r *http.Request) {
 	if !s.m.pg.GetBool(db.SettingTaskIntelligence, false) || !s.m.pg.GetBool(db.SettingCredentialAgent, false) {
-		writeErr(w, 409, "请先开启 Agent 开关")
+		writeErr(w, 409, "먼저 Agent 스위치를 켜세요")
 		return
 	}
 	taskID, ok := pathInt(r, "id")
@@ -395,7 +395,7 @@ func (s *Server) retryCredentials(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if item.Credentials != nil && item.Credentials.State == "processing" {
-		writeErr(w, 409, "该凭据正在整理，请稍后再试")
+		writeErr(w, 409, "이 자격 증명은 정리하는 중입니다. 잠시 후 다시 시도하세요")
 		return
 	}
 	if err = s.m.pg.RetryCredentialJob(r.Context(), taskID, id); err != nil {

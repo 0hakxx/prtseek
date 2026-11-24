@@ -62,11 +62,11 @@ func TestHTTPObservationRedirectBodyBudgetAndEmptySuccess(t *testing.T) {
 		t.Fatal("artifact hash mismatch")
 	}
 	o, res = fetchFixture(t, tool, server.URL+"/large", dir, false)
-	if res.IsError || !o.BodyTruncated || o.BodyBytes != httpBodyLimit || !strings.Contains(o.Note, "前缀") {
+	if res.IsError || !o.BodyTruncated || o.BodyBytes != httpBodyLimit || !strings.Contains(o.Note, "앞부분") {
 		t.Fatalf("%s", res.Flatten())
 	}
 	o, res = fetchFixture(t, tool, server.URL+"/empty", dir, false)
-	if res.IsError || !strings.Contains(o.Note, "空正文") {
+	if res.IsError || !strings.Contains(o.Note, "본문이 비어 있음") {
 		t.Fatalf("%s", res.Flatten())
 	}
 	_, res = fetchFixture(t, tool, server.URL+"/404", dir, false)
@@ -95,7 +95,7 @@ func TestHTTPObservationTLSCAAndNoProxyFallback(t *testing.T) {
 		t.Fatalf("unexpected proxy fallback: %s", res.Flatten())
 	}
 	_, res = fetchFixture(t, newObservedWebFetch("", filepath.Join(dir, "missing.pem")), server.URL, dir, false)
-	if !res.IsError || !strings.Contains(res.Flatten(), "配置错误") {
+	if !res.IsError || !strings.Contains(res.Flatten(), "설정 오류") {
 		t.Fatal(res.Flatten())
 	}
 }

@@ -150,13 +150,13 @@ func (s *Server) requireBasicAuth(next http.Handler) http.Handler {
 		if !ok || len(password) > maxPasswordBytes || username != cfg.Username ||
 			bcrypt.CompareHashAndPassword([]byte(cfg.PasswordHash), []byte(password)) != nil {
 			w.Header().Set("WWW-Authenticate", `Basic realm="prtseek", charset="UTF-8"`)
-			writeErr(w, http.StatusUnauthorized, "请先完成 HTTP Basic Auth 验证")
+			writeErr(w, http.StatusUnauthorized, "먼저 HTTP Basic Auth 인증을 완료하세요")
 			return
 		}
 		// Browser API requests already use Authorization: Bearer. A separate
 		// HttpOnly cookie keeps the gate satisfied without replacing that header.
 		if err := s.setBasicAuthCookie(w, r, cfg); err != nil {
-			writeErr(w, 500, "认证会话生成失败")
+			writeErr(w, 500, "인증 세션 생성 실패")
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -179,7 +179,7 @@ func (s *Server) saveBasicAuthSettings(w http.ResponseWriter, r *http.Request) {
 		Password string  `json:"password"`
 	}
 	if err := decode(r, &req); err != nil {
-		writeErr(w, 400, "请求格式错误")
+		writeErr(w, 400, "요청 형식 오류")
 		return
 	}
 	g := &s.basicAuth
@@ -199,7 +199,7 @@ func (s *Server) saveBasicAuthSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.Username = strings.TrimSpace(*req.Username)
 	}
 	if (cfg.Enabled || cfg.Username != "") && !validBasicUsername(cfg.Username) {
-		writeErr(w, 400, "Basic Auth 用户名不能为空、超过 128 字节或包含冒号及控制字符")
+		writeErr(w, 400, "Basic Auth 사용자 이름은 비어 있거나, 128 바이트를 넘거나, 콜론 및 제어 문자를 포함할 수 없습니다")
 		return
 	}
 	if req.Password != "" {
@@ -209,13 +209,13 @@ func (s *Server) saveBasicAuthSettings(w http.ResponseWriter, r *http.Request) {
 		}
 		hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 		if err != nil {
-			writeErr(w, 500, "密码加密失败")
+			writeErr(w, 500, "비밀번호 암호화 실패")
 			return
 		}
 		cfg.PasswordHash = string(hash)
 	}
 	if cfg.Enabled && cfg.PasswordHash == "" {
-		writeErr(w, 400, "请先设置 Basic Auth 密码")
+		writeErr(w, 400, "먼저 Basic Auth 비밀번호를 설정하세요")
 		return
 	}
 	// Every save revokes previous gate cookies, including disable/re-enable.
@@ -224,7 +224,7 @@ func (s *Server) saveBasicAuthSettings(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), basicAuthSaveTimeout)
 	defer cancel()
 	if err != nil || store.SetSettingContext(ctx, basicAuthKey, string(data)) != nil {
-		writeErr(w, 503, "Basic Auth 配置保存失败，请重试")
+		writeErr(w, 503, "Basic Auth 설정 저장에 실패했습니다. 다시 시도하세요")
 		return
 	}
 	// Hashing, persistence and response output never hold the request mutex.
@@ -236,7 +236,7 @@ func (s *Server) saveBasicAuthSettings(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	// Keep the administrator who just saved the settings in their session.
 	if err := s.setBasicAuthCookie(w, r, cfg); err != nil {
-		writeErr(w, 500, "认证会话生成失败")
+		writeErr(w, 500, "인증 세션 생성 실패")
 		return
 	}
 	writeJSON(w, 200, basicAuthPublicSettings(cfg))

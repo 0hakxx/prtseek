@@ -33,43 +33,43 @@ type researchExampleCard struct {
 
 var researchExampleCards = []researchExampleCard{
 	{
-		id: "source-evidence", title: "源码审计：从调用点回到可控输入",
-		keywords: []string{"源码审计", "代码审计", "漏洞审计", "安全代码审查", "代码安全", "审计仓库", "审计项目", "污点", "调用链", "可达性", "source audit", "code audit", "taint", "source review", "security code review", "source-evidence"},
+		id: "source-evidence", title: "소스 감사: 호출 지점에서 제어 가능한 입력으로 거슬러 올라가기",
+		keywords: []string{"源码审计", "代码审计", "漏洞审计", "安全代码审查", "代码安全", "审计仓库", "审计项目", "污点", "调用链", "可达性", "소스 감사", "코드 감사", "취약점 감사", "보안 코드 리뷰", "코드 보안", "저장소 감사", "오염", "호출 체인", "도달 가능성", "source audit", "code audit", "taint", "source review", "security code review", "source-evidence"},
 		tools:    []string{"Grep", "Read", "research_record", "research_recall"},
-		body:     "流程：先定位符号和调用点，再读取必要上下文；把输入来源、传递路径、权限和防护条件分别核对。危险调用只是一条线索。\n示例（虚构）：观察 E1：某处理函数把参数传给文件操作；假设 H1：外部输入能影响路径；反证 E2：当前入口有固定映射。结论：H1 未证实。下一步：检查映射是否覆盖所有调用者，而非直接报告漏洞。证据记录应保留实际文件与行号、版本、入口条件；全文输出截断时继续定点读取。",
-		source:   "方法参考：PentestGPT https://arxiv.org/abs/2308.06782；AVRI https://arxiv.org/abs/2610.11602。示例为本项目编写，不是论文成绩复现。",
+		body:     "절차: 먼저 심볼과 호출 지점을 찾고 필요한 컨텍스트를 읽는다. 입력 출처, 전달 경로, 권한, 보호 조건을 각각 확인한다. 위험한 호출은 단서일 뿐이다.\n예시(가상): 관찰 E1: 어떤 처리 함수가 파라미터를 파일 작업에 넘긴다. 가설 H1: 외부 입력이 경로에 영향을 줄 수 있다. 반증 E2: 현재 진입점에는 고정 매핑이 있다. 결론: H1 은 입증되지 않았다. 다음 단계: 바로 취약점으로 보고하지 말고 매핑이 모든 호출자를 다루는지 확인한다. 증거 기록에는 실제 파일과 줄 번호, 버전, 진입 조건을 남긴다. 전체 출력이 잘리면 위치를 지정해 계속 읽는다.",
+		source:   "방법 참고: PentestGPT https://arxiv.org/abs/2308.06782; AVRI https://arxiv.org/abs/2610.11602 . 예시는 이 프로젝트에서 작성한 것이며 논문 결과의 재현이 아니다.",
 	},
 	{
-		id: "web-comparison", title: "Web/API：基线、单变量与实际影响",
-		keywords: []string{"接口对比", "响应对比", "对比响应", "越权", "业务逻辑", "网站漏洞", "接口漏洞", "web安全", "web 安全", "web漏洞", "web 漏洞", "api安全", "api 安全", "api漏洞", "api 漏洞", "授权测试", "请求差异", "api comparison", "authorization test", "web security", "web vulnerability", "api vulnerability", "web-comparison"},
+		id: "web-comparison", title: "Web/API: 기준선, 단일 변수와 실제 영향",
+		keywords: []string{"接口对比", "响应对比", "对比响应", "越权", "业务逻辑", "网站漏洞", "接口漏洞", "web安全", "web 安全", "web漏洞", "web 漏洞", "api安全", "api 安全", "api漏洞", "api 漏洞", "授权测试", "请求差异", "인터페이스 비교", "응답 비교", "권한 우회", "비즈니스 로직", "웹 취약점", "웹 보안", "api 보안", "api 취약점", "권한 테스트", "요청 차이", "api comparison", "authorization test", "web security", "web vulnerability", "api vulnerability", "web-comparison"},
 		tools:    []string{"traffic_search", "traffic_get", "traffic_blob", "Read", "research_record", "research_recall"},
-		body:     "流程：先读取真实基线，保持会话与环境条件可比；每次只改变一个有依据的变量，再检查业务结果。响应码相同不代表权限相同，响应码异常也不证明漏洞。\n示例（虚构）：观察 E1：两个受控账号请求得到相同状态码；假设 H1：返回了他人的对象；反证 E2：正文实际都是公共摘要。结论：当前证据不支持越权。下一步：比较对象归属与受保护字段，并记录请求/响应证据引用及账号代号。凭据原文不进入摘要。先确认用户授权范围和数据归属。",
-		source:   "方法参考：EnIGMA https://arxiv.org/abs/2409.16165。此卡提供验证流程，不包含目标、攻击指令或授权。",
+		body:     "절차: 먼저 실제 기준선을 읽고, 세션과 환경 조건을 비교 가능하게 유지한다. 매번 근거 있는 변수 하나만 바꾼 뒤 비즈니스 결과를 확인한다. 응답 코드가 같다고 권한이 같은 것은 아니며, 응답 코드가 이상하다고 취약점이 증명되는 것도 아니다.\n예시(가상): 관찰 E1: 통제된 두 계정의 요청이 같은 상태 코드를 받았다. 가설 H1: 다른 사람의 객체가 반환되었다. 반증 E2: 본문은 실제로 둘 다 공개 요약이다. 결론: 현재 증거는 권한 우회를 뒷받침하지 않는다. 다음 단계: 객체 소유권과 보호 필드를 비교하고, 요청/응답 증거 참조와 계정 별칭을 기록한다. 자격 증명 원문은 요약에 넣지 않는다. 먼저 사용자 권한 범위와 데이터 소유권을 확인한다.",
+		source:   "방법 참고: EnIGMA https://arxiv.org/abs/2409.16165 . 이 카드는 검증 절차를 제공하며 대상, 공격 지시, 권한을 포함하지 않는다.",
 	},
 	{
-		id: "environment-check", title: "环境故障：先分类，再决定重试",
-		keywords: []string{"环境故障", "命令不存在", "找不到命令", "command not found", "executable not found", "connection refused", "连接被拒绝", "路径错误", "依赖缺失", "shell错误", "shell 错误", "environment-check"},
+		id: "environment-check", title: "환경 장애: 먼저 분류하고 재시도를 결정",
+		keywords: []string{"环境故障", "命令不存在", "找不到命令", "command not found", "executable not found", "connection refused", "连接被拒绝", "路径错误", "依赖缺失", "shell错误", "shell 错误", "환경 장애", "명령 없음", "명령을 찾을 수 없음", "연결 거부", "경로 오류", "의존성 누락", "shell 오류", "environment-check"},
 		tools:    []string{"Bash", "Read", "LS", "research_record", "research_recall"},
-		body:     "流程：区分解释器/工作目录/依赖/服务就绪/网络问题与目标行为。先读完整退出码和错误位置，核对当前操作系统及已发现的路径；按工具支持的参数作最小只读检查。\n示例（虚构）：观察 E1：工具返回 executable not found；假设 H1：依赖未安装；反证 E2：环境记录已有解释器绝对路径。下一步：核对该路径和调用方式。此时还没有执行目标逻辑，不能把结果写成目标不存在漏洞。重复尝试必须更正参数或获得新证据，不因普通环境失败自动改变系统安全策略。",
-		source:   "方法参考：EnIGMA https://arxiv.org/abs/2409.16165；错误分类与检查步骤为本项目编写。",
+		body:     "절차: 인터프리터/작업 디렉터리/의존성/서비스 준비/네트워크 문제와 대상의 동작을 구분한다. 먼저 전체 종료 코드와 오류 위치를 읽고, 현재 운영 체제와 이미 찾은 경로를 확인한다. 도구가 지원하는 파라미터로 최소한의 읽기 전용 검사를 한다.\n예시(가상): 관찰 E1: 도구가 executable not found 를 반환했다. 가설 H1: 의존성이 설치되지 않았다. 반증 E2: 환경 기록에 이미 인터프리터 절대 경로가 있다. 다음 단계: 그 경로와 호출 방식을 확인한다. 이 시점에는 아직 대상 로직을 실행하지 않았으므로, 결과를 대상에 취약점이 없다고 쓸 수 없다. 반복 시도는 반드시 파라미터를 고치거나 새 증거를 얻어야 하며, 일반적인 환경 실패 때문에 시스템 보안 정책을 자동으로 바꾸지 않는다.",
+		source:   "방법 참고: EnIGMA https://arxiv.org/abs/2409.16165 . 오류 분류와 검사 단계는 이 프로젝트에서 작성했다.",
 	},
 	{
-		id: "resume-state", title: "长任务恢复：恢复证据与依赖，不重放旧动作",
-		keywords: []string{"恢复任务", "任务恢复", "长任务", "断点续", "交接", "压缩后", "继续审计", "resume task", "resume research", "handoff", "checkpoint", "resume-state"},
+		id: "resume-state", title: "장기 작업 복구: 증거와 의존성은 복구하고, 이전 동작은 재생하지 않기",
+		keywords: []string{"恢复任务", "任务恢复", "长任务", "断点续", "交接", "压缩后", "继续审计", "작업 복구", "작업 재개", "장기 작업", "이어서", "인수인계", "압축 후", "감사 계속", "resume task", "resume research", "handoff", "checkpoint", "resume-state"},
 		tools:    []string{"research_recall", "research_record", "Read", "graph_overview", "list_facts"},
-		body:     "流程：先恢复目标、完成条件、已确认事实、失败路线与前置依赖，再核对当前环境是否仍成立。历史记录是待核对的上下文，不能代替当前操作授权或运行状态。\n示例（虚构）：旧记录 E1：某服务曾启动；恢复时 E2：就绪检查失败。结论：服务状态已变化，原后续步骤的前提不成立。下一步：记录变化并定位环境原因。已完成的写操作先查结果再决定是否继续，避免重放副作用。暂停状态只能读取既有记录；恢复执行遵循当前任务控制。",
-		source:   "方法参考：PentestGPT https://arxiv.org/abs/2308.06782；Reflexion https://arxiv.org/abs/2303.11366。",
+		body:     "절차: 먼저 목표, 완료 조건, 확인된 사실, 실패한 경로, 선행 의존성을 복구한 뒤, 현재 환경에서도 여전히 성립하는지 확인한다. 과거 기록은 확인해야 할 컨텍스트이며 현재 작업 권한이나 실행 상태를 대신할 수 없다.\n예시(가상): 이전 기록 E1: 어떤 서비스가 시작된 적이 있다. 복구 시 E2: 준비 상태 검사가 실패했다. 결론: 서비스 상태가 바뀌어 원래 후속 단계의 전제가 성립하지 않는다. 다음 단계: 변화를 기록하고 환경 원인을 찾는다. 이미 완료된 쓰기 작업은 먼저 결과를 확인한 뒤 계속할지 결정해 부수 효과의 재생을 피한다. 일시 중지 상태에서는 기존 기록만 읽을 수 있으며, 재개 실행은 현재 작업 제어를 따른다.",
+		source:   "방법 참고: PentestGPT https://arxiv.org/abs/2308.06782; Reflexion https://arxiv.org/abs/2303.11366 .",
 	},
 	{
-		id: "failure-feedback", title: "失败修正：用新证据选择下一步",
-		keywords: []string{"工具失败", "重复失败", "反复失败", "无进展", "停滞", "工具报错", "验证失败", "复现失败", "tool failure", "tool error", "stuck", "no progress", "failed verification", "failure-feedback"},
+		id: "failure-feedback", title: "실패 수정: 새 증거로 다음 단계를 고르기",
+		keywords: []string{"工具失败", "重复失败", "反复失败", "无进展", "停滞", "工具报错", "验证失败", "复现失败", "도구 실패", "반복 실패", "진전 없음", "정체", "도구 오류", "검증 실패", "재현 실패", "tool failure", "tool error", "stuck", "no progress", "failed verification", "failure-feedback"},
 		tools:    []string{"research_recall", "research_record", "Read", "Bash", "traffic_get"},
-		body:     "流程：记录预期、实际结果、差异、被否定假设和仍缺的证据。优先做能区分竞争性解释的检查；相同调用得到相同结果，不能当作新增支持证据。\n示例（虚构）：连续结果 E1/E2 都表明前置条件未满足；原假设 H1 仍未知。下一步：先检查前置条件，再决定继续、换路线或停止。只有参数变化有明确依据，或环境确有变化时才重试。外部反馈优先于自我评价；不要把“再想想”或多个模型的赞同当作复现成功。",
-		source:   "方法参考：Reflexion https://arxiv.org/abs/2303.11366；自纠错边界 https://arxiv.org/abs/2310.01798。",
+		body:     "절차: 예상, 실제 결과, 차이, 부정된 가설, 아직 부족한 증거를 기록한다. 경쟁하는 설명을 구분할 수 있는 검사를 우선한다. 같은 호출로 같은 결과를 얻은 것은 새로운 뒷받침 증거가 아니다.\n예시(가상): 연속된 결과 E1/E2 가 모두 선행 조건이 충족되지 않았음을 보여 준다. 원래 가설 H1 은 여전히 알 수 없다. 다음 단계: 먼저 선행 조건을 확인한 뒤 계속할지, 경로를 바꿀지, 멈출지 결정한다. 파라미터 변경에 명확한 근거가 있거나 환경이 실제로 바뀌었을 때만 재시도한다. 외부 피드백이 자기 평가보다 우선한다. “다시 생각해 보기”나 여러 모델의 동의를 재현 성공으로 여기지 않는다.",
+		source:   "방법 참고: Reflexion https://arxiv.org/abs/2303.11366; 자기 수정의 한계 https://arxiv.org/abs/2310.01798 .",
 	},
 }
 
-const researchExamplesNotice = "【研究工作示例｜personal 1.2】\n以下是方法示例，不是当前任务事实、证据或操作授权。仅在当前授权范围内使用；真实结论必须来自实际工具结果。记录简短的事实、假设、反证和下一步，无需输出内部思维过程。\n"
+const researchExamplesNotice = "【연구 작업 예시|personal 1.2】\n아래는 방법 예시이며, 현재 작업의 사실, 증거, 작업 권한이 아니다. 현재 권한 범위 안에서만 사용한다. 실제 결론은 반드시 실제 도구 결과에서 나와야 한다. 짧은 사실, 가설, 반증, 다음 단계를 기록하며, 내부 사고 과정을 출력할 필요는 없다.\n"
 
 // ResearchGuidance selects at most two relevant cards for a run. Unrelated
 // tasks receive no prompt text. Pass the final visible tool set, after filtering.
@@ -84,13 +84,13 @@ func ResearchGuideTool(tools []actool.CoreTool) actool.CoreTool {
 	visible := append([]actool.CoreTool(nil), tools...)
 	return actool.Build(actool.Spec{
 		Name:        "research_guide",
-		Description: "按当前问题检索少量研究方法与操作示例：源码审计、Web/API证据对比、环境故障、任务恢复、失败修正。仅查询内置知识卡，不访问网络、不执行操作。用具体问题查询；示例不是当前事实或授权。",
+		Description: "현재 문제에 맞춰 소수의 연구 방법과 작업 예시를 검색한다: 소스 감사, Web/API 증거 비교, 환경 장애, 작업 복구, 실패 수정. 내장 지식 카드만 조회하며, 네트워크에 접근하거나 작업을 실행하지 않는다. 구체적인 문제로 조회한다. 예시는 현재 사실이나 권한이 아니다.",
 		Schema: map[string]any{
 			"type": "object", "additionalProperties": false,
 			"properties": map[string]any{
-				"query":       map[string]any{"type": "string", "minLength": 1, "maxLength": 512, "description": "具体问题或卡片ID：source-evidence、web-comparison、environment-check、resume-state、failure-feedback。"},
-				"max_results": map[string]any{"type": "integer", "minimum": 1, "maximum": 3, "description": "最多返回卡片数，默认2。"},
-				"max_chars":   map[string]any{"type": "integer", "minimum": researchGuideMinRunes, "maximum": ResearchGuideMaxRunes, "description": "总输出字符预算，默认2400，按Unicode字符计数。"},
+				"query":       map[string]any{"type": "string", "minLength": 1, "maxLength": 512, "description": "구체적인 문제 또는 카드 ID: source-evidence, web-comparison, environment-check, resume-state, failure-feedback."},
+				"max_results": map[string]any{"type": "integer", "minimum": 1, "maximum": 3, "description": "반환할 최대 카드 수, 기본 2."},
+				"max_chars":   map[string]any{"type": "integer", "minimum": researchGuideMinRunes, "maximum": ResearchGuideMaxRunes, "description": "전체 출력 글자 수 예산, 기본 2400, Unicode 문자 기준으로 셈."},
 			},
 			"required": []any{"query"},
 		},
@@ -101,10 +101,10 @@ func ResearchGuideTool(tools []actool.CoreTool) actool.CoreTool {
 		},
 		Run: func(ctx context.Context, raw json.RawMessage, _ *actool.ToolContext) (actool.Result, error) {
 			if err := ctx.Err(); err != nil {
-				return actool.Errorf("方法查询已取消"), nil
+				return actool.Errorf("방법 조회가 취소되었습니다"), nil
 			}
 			if len(raw) > 8192 {
-				return actool.Errorf("查询参数过大；query 最多512个字符"), nil
+				return actool.Errorf("조회 파라미터가 너무 큽니다. query 는 최대 512자입니다"), nil
 			}
 			var in struct {
 				Query      string `json:"query"`
@@ -114,14 +114,14 @@ func ResearchGuideTool(tools []actool.CoreTool) actool.CoreTool {
 			decoder := json.NewDecoder(bytes.NewReader(raw))
 			decoder.DisallowUnknownFields()
 			if err := decoder.Decode(&in); err != nil {
-				return actool.Errorf("无效查询参数：需要 query 字符串，可选 max_results、max_chars 整数"), nil
+				return actool.Errorf("유효하지 않은 조회 파라미터: query 문자열이 필요하며, max_results, max_chars 정수는 선택입니다"), nil
 			}
 			if err := decoder.Decode(new(any)); err != io.EOF {
-				return actool.Errorf("查询必须是单个JSON对象"), nil
+				return actool.Errorf("조회는 단일 JSON 객체여야 합니다"), nil
 			}
 			in.Query = strings.TrimSpace(in.Query)
 			if in.Query == "" || utf8.RuneCountInString(in.Query) > 512 {
-				return actool.Errorf("query 需要1至512个字符"), nil
+				return actool.Errorf("query 는 1~512자여야 합니다"), nil
 			}
 			maxResults, maxChars := 2, 2400
 			if in.MaxResults != nil {
@@ -131,11 +131,11 @@ func ResearchGuideTool(tools []actool.CoreTool) actool.CoreTool {
 				maxChars = *in.MaxChars
 			}
 			if maxResults < 1 || maxResults > 3 || maxChars < researchGuideMinRunes || maxChars > ResearchGuideMaxRunes {
-				return actool.Errorf("max_results 范围1至3；max_chars 范围600至3200"), nil
+				return actool.Errorf("max_results 범위는 1~3, max_chars 범위는 600~3200 입니다"), nil
 			}
 			text := renderResearchExamples(in.Query, visible, maxResults, maxChars)
 			if text == "" {
-				text = "没有匹配当前问题和可见工具的方法卡。可查询：源码审计、接口响应对比、环境故障、任务恢复、工具失败。不要据此假设缺失工具可用。"
+				text = "현재 문제와 보이는 도구에 맞는 방법 카드가 없다. 조회 가능: 소스 감사, 인터페이스 응답 비교, 환경 장애, 작업 복구, 도구 실패. 이를 근거로 없는 도구를 쓸 수 있다고 가정하지 않는다."
 			}
 			return actool.Text(text), nil
 		},
@@ -261,14 +261,14 @@ func researchExampleTools(card researchExampleCard, visible map[string]actool.Co
 		}
 		desc := name
 		if len(fields) > 0 {
-			desc += "（必填：" + strings.Join(fields, "、") + "）"
+			desc += "(필수: " + strings.Join(fields, ", ") + ")"
 		}
 		descriptions = append(descriptions, desc)
 		if len(descriptions) == 3 {
 			break
 		}
 	}
-	return fmt.Sprintf("当前可用工具：%s。以实际工具schema为准；示例中的E/H编号和路径需替换为本任务真实记录。", strings.Join(descriptions, "；"))
+	return fmt.Sprintf("현재 사용 가능한 도구: %s. 실제 도구 schema 를 기준으로 한다. 예시의 E/H 번호와 경로는 이 작업의 실제 기록으로 바꿔야 한다.", strings.Join(descriptions, "; "))
 }
 
 func researchSchemaField(s string) bool {

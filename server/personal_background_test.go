@@ -112,12 +112,12 @@ func TestPersonalCheckpointPreservesVisibleHistory(t *testing.T) {
 		}
 		return id
 	}
-	appendActivity(db.Activity{Kind: "user", Summary: "只检查本地文件", Detail: `{"text":"只检查本地文件","attachments":[{"name":"scope.txt"}]}`})
+	appendActivity(db.Activity{Kind: "user", Summary: "로컬 파일만 확인", Detail: `{"text":"로컬 파일만 확인","attachments":[{"name":"scope.txt"}]}`})
 	for i := 0; i < 40; i++ {
-		appendActivity(db.Activity{Kind: "text", Summary: strings.Repeat("已核对文件。", 200)})
+		appendActivity(db.Activity{Kind: "text", Summary: strings.Repeat("파일을 대조했습니다. ", 200)})
 	}
 	evidence := strings.Repeat("raw-evidence-", 3000)
-	cursor := appendActivity(db.Activity{Kind: "tool_result", Tool: "Read", Summary: "证据已保存", Detail: evidence})
+	cursor := appendActivity(db.Activity{Kind: "tool_result", Tool: "Read", Summary: "증거를 저장했습니다", Detail: evidence})
 	last := appendActivity(db.Activity{Kind: "thinking", Summary: "private-thought-marker", Detail: "private-thought-detail"})
 	checkpoint, gotCursor, err := s.personalCheckpoint(c, "request-1", "finish checking")
 	if err != nil {
