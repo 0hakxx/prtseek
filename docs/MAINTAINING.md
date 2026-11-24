@@ -30,7 +30,7 @@ git merge upstream/master   # 번역 충돌은 수동 해결
 | Go 모듈 `github.com/Autumn-27/norma v0.4.3` (131 개 파일에서 import, 상위 메인테이너 소유) | `go.mod` | **1차: `vendor/` 를 저장소에 커밋** → `go build -mod=vendor ./...` 로 네트워크 없이 빌드. **2차: `github.com/0hakxx/norma` 미러 저장소**(v0.4.3 포함 전체 태그/브랜치 미러됨). vendor 가 깨졌을 때 `go.mod` 에 다음 추가: `replace github.com/Autumn-27/norma => github.com/0hakxx/norma v0.4.3` 후 `GOPROXY=https://proxy.golang.org,direct go mod tidy && go mod vendor` |
 | 기타 Go 모듈(`golang.org/x/*`, `projectdiscovery/*`, `modernc.org/sqlite` 등) | `go.mod` | `vendor/` 에 소스 포함(253 MB). 네트워크 없이 `-mod=vendor` 로 빌드 가능 |
 | npm 패키지(`registry.npmjs.org`) | `web/package-lock.json` | `scripts/backup-deps.sh` → `dist/npm-cache.tar.gz` (`npm ci --offline`) |
-| 자동 업데이트(`selfupdate`, `RuoJi6/ARTEX` 릴리스) | `selfupdate/github.go` | prtseek 빌드(`VERSION` 이 `prtseek-` 로 시작)에서는 비활성화되어 있어 런타임 의존 없음 |
+| 자동 업데이트(`selfupdate`, `0hakxx/prtseek` 릴리스) | `selfupdate/github.go` | `Repo` 상수를 자체 저장소로 리맵. prtseek 빌드(`VERSION` 이 `prtseek-` 로 시작)에서는 IsPersonalBuild 게이팅으로 호출 자체가 비활성화되어 런타임 의존 없음 |
 
 > Go 모듈 경로 `github.com/Autumn-27/artex` 는 **import 경로 이름일 뿐** 네트워크 접근이 없으므로 그대로 둔다.
 

@@ -405,12 +405,12 @@ func TestCheckURLRejectsNonGitHub(t *testing.T) {
 }
 
 func TestAssetNameMatchesBuildScript(t *testing.T) {
-	// build.sh 의 package_binary 는 artex-<버전>-<os>-<arch>.zip 를 쓰며 버전 번호에서
+	// build.sh 의 package_binary 는 prtseek-<버전>-<os>-<arch>.zip 를 쓰며 버전 번호에서
 	// v 접두사를 뗐다. 여기서 한 글자만 틀려도 모든 플랫폼의 원클릭 업데이트가 자산을 못 찾는다.
-	if got := AssetName("v0.3.8", "linux", "amd64"); got != "artex-0.3.8-linux-amd64.zip" {
+	if got := AssetName("v0.3.8", "linux", "amd64"); got != "prtseek-0.3.8-linux-amd64.zip" {
 		t.Errorf("AssetName = %q", got)
 	}
-	if got := AssetName("0.3.8", "windows", "amd64"); got != "artex-0.3.8-windows-amd64.zip" {
+	if got := AssetName("0.3.8", "windows", "amd64"); got != "prtseek-0.3.8-windows-amd64.zip" {
 		t.Errorf("AssetName = %q", got)
 	}
 }

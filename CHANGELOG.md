@@ -2,6 +2,12 @@
 
 사용자가 체감할 수 있는 개선, 수정, 사용상 변화를 날짜 역순으로 기록한다. 과거 항목은 저장소 커밋을 기준으로 정리했으며, 날짜는 업데이트 기록일 뿐 별도 설치 패키지가 배포되었다는 뜻은 아니다.
 
+## 2026-11-24 — selfupdate 채널을 자체 저장소로 리맵
+
+- `selfupdate/github.go` 의 `const Repo` 를 `"RuoJi6/ARTEX"` → `"0hakxx/prtseek"` 로 변경해 코드의 상위 조직 흔적을 제거했다. 자산 이름 패턴도 `artex-<ver>-<os>-<arch>.zip` → `prtseek-...` 로 일치시켜 build.sh 의 `package_binary` 와 선로를 통일.
+- VERSION 이 `prtseek-` 또는 `personal-` 접두사이면 cmd/prtseek/main.go 의 `IsPersonalBuild` 게이팅으로 selfupdate 호출 자체가 비활성이므로 런타임 영향은 없지만, 코드와 테스트·문서에 남아 있던 상위 저장소 문자열을 전부 지워 "모든 상위가 사라져도 코드 상 참조 0" 를 달성.
+- 테스트 3개(`TestFetchLatestUsesForkRelease`, `TestFetchLatestMissingRelease`, `TestAssetNameMatchesBuildScript`)의 fixture 를 새 저장소/자산 이름에 맞춰 수정. `go test ./selfupdate` 통과.
+
 ## 2026-11-24 — 상위 의존성 완전 독립화 (vendor 커밋 + norma 미러 + Dockerfile 오프라인화)
 
 - `vendor/` 를 저장소에 커밋해 Go 의존성 전체(253 MB, `github.com/Autumn-27/norma v0.4.3` 포함 모든 외부 패키지 소스)를 로컬에 상주. 상위가 삭제돼도 `go build -mod=vendor ./...` 로 네트워크 없이 빌드·테스트 가능.

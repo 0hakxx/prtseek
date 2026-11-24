@@ -11,10 +11,11 @@ import (
 	"time"
 )
 
-// Repo 는 실제 상위 출처와 그 배포 패키지 프로토콜을 유지한다. prtseek 빌드는 이 채널로 업데이트하는 것이 금지되어 있다.
+// Repo 는 업데이트 출처 저장소다. 상위(RuoJi6/ARTEX)와 분리해 이 저장소(0hakxx/prtseek)를 가리키며,
+// 현재 VERSION 이 `prtseek-` 로 시작하는 한 cmd/prtseek/main.go 의 IsPersonalBuild 게이팅이 이 채널 호출 자체를 막는다.
 // 설정 항목으로 만들지 않고 하드코딩한다: 업데이트 출처를 설정할 수 있게 하면 설정을 바꿀 수 있는 누구에게나
 // 원격 코드 실행 통로를 주는 셈이며, 침투 테스트 플랫폼에서 이 구멍은 열 수 없다.
-const Repo = "RuoJi6/ARTEX"
+const Repo = "0hakxx/prtseek"
 
 // latestURL 은 GitHub 의 "최신 정식 버전" 인터페이스다. prerelease 와 draft 는 자동으로 건너뛴다.
 const latestURL = "https://api.github.com/repos/" + Repo + "/releases/latest"
@@ -155,9 +156,9 @@ func FetchLatest(ctx context.Context, c *http.Client) (*Release, error) {
 }
 
 // AssetName 은 현재 플랫폼에 해당하는 배포 패키지 이름을 반환하며, build.sh 의 package_binary 와 일치시킨다:
-// artex-<버전>-<os>-<arch>.zip(버전 번호에 v 접두사 없음).
+// prtseek-<버전>-<os>-<arch>.zip(버전 번호에 v 접두사 없음).
 func AssetName(tag, goos, goarch string) string {
-	return fmt.Sprintf("artex-%s-%s-%s.zip", strings.TrimPrefix(tag, "v"), goos, goarch)
+	return fmt.Sprintf("prtseek-%s-%s-%s.zip", strings.TrimPrefix(tag, "v"), goos, goarch)
 }
 
 // FindAsset 은 Release 에서 이름으로 자산을 찾는다.
