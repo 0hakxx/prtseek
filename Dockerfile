@@ -20,12 +20,15 @@ COPY . .
 RUN cd web && npm run build:static
 
 FROM ${GO_IMAGE} AS go-build
-# GOPROXY 를 바꾸면 사설 프록시(Athens 등)나 오프라인 캐시(file://)로 모듈을 받을 수 있다.
-ARG GOPROXY=https://proxy.golang.org,direct
+# vendor/ 가 저장소에 포함되어 있으므로 네트워크 조회(proxy.golang.org / Autumn-27·0hakxx 등)를 피하도록
+# GOFLAGS=-mod=vendor, GOPROXY=off 를 기본값으로 둔다. 상위 저장소가 전부 사라져도 재빌드가 가능.
+# 외부 모듈을 새로 받을 일이 있으면 빌드 시 `--build-arg GOPROXY=https://proxy.golang.org,direct` 로 덮어쓴다.
+ARG GOPROXY=off
+ARG GOFLAGS=-mod=vendor
 ENV GOPROXY=${GOPROXY}
+ENV GOFLAGS=${GOFLAGS}
 WORKDIR /src
-COPY go.mod go.sum ./
-RUN go mod download
+# 소스와 vendor/ 를 함께 복사 — `go mod download` 는 vendor 모드에서 불필요하므로 생략.
 COPY . .
 COPY --from=web-build /src/web/out ./server/webui/dist
 RUN CGO_ENABLED=0 go build -trimpath -tags embedui -ldflags="-s -w -X main.version=$(tr -d '\r\n' < VERSION)" -o /prtseek ./cmd/prtseek

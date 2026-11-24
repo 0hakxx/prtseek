@@ -55,28 +55,70 @@ SAVE=1 PUSH=0 bash scripts/mirror-base-images.sh  # → dist/base-images.tar.gz
 bash scripts/backup-deps.sh                     # → dist/npm-cache.tar.gz (Go 는 vendor/ 가 저장소에 있음)
 ```
 
-## 3.5 Go 의존성 복구(상위가 사라졌을 때)
+## 3.5 "상위가 전부 사라졌을 때" 시나리오별 복구
 
-`vendor/` 가 저장소에 커밋되어 있어 네트워크 없이 바로 빌드된다:
+여기서 **상위**는 다음 네 저장소를 뜻한다: `Team-intN18-SoybeanSeclab/prtseek`, `Autumn-27/norma`,
+`Autumn-27/ARTEX`, `RuoJi6/ARTEX`. **공개 인프라**(Docker Hub, npm registry, Debian apt, Microsoft
+Playwright CDN, proxy.golang.org)는 상위와는 별개 리스크로 본다.
 
+### 상위가 사라졌지만 공개 인프라는 살아 있음 (가장 흔한 시나리오)
+**추가 설정이 필요 없다**. clone → build → run 이 그대로 된다.
+- `go build -mod=vendor ./...` : `vendor/` 가 저장소에 있어 네트워크 0 바이트.
+- `docker build .` : Dockerfile 이 `GOPROXY=off` 로 하드코딩되어 Go 는 상위를 전혀 조회하지 않음.
+  베이스 이미지는 Docker Hub 에서, 런타임 의존은 npm/apt/Microsoft CDN 에서 받아 온다.
+- 이미 `docker pull ghcr.io/0hakxx/prtseek:latest` 된 이미지는 실행 시 어떤 공개 인프라도 필요 없음(LLM API 키 제외).
+
+### vendor/ 가 유실된 상태 (git clean -fdx 실수 등)
+`vendor/` 는 git 에 커밋되어 있으니 `git checkout -- vendor/` 로 복원이 먼저다. 커밋에서도 사라졌다면:
 ```bash
-go build -mod=vendor ./...
-go test -mod=vendor ./...
-```
-
-`vendor/` 가 손상되어 재생성해야 하는데 `github.com/Autumn-27/norma` 가 사라진 상태라면,
-미러 저장소 `github.com/0hakxx/norma` (v0.4.3 포함 전체 태그 미러됨)를 쓰도록 `go.mod` 에 아래를
-추가한 뒤 재생성한다:
-
-```bash
-# go.mod 끝에 한 줄 추가
+# go.mod 끝에 한 줄 추가 (Autumn-27/norma 미러로 리맵)
 echo 'replace github.com/Autumn-27/norma => github.com/0hakxx/norma v0.4.3' >> go.mod
 GOPROXY='https://proxy.golang.org,direct' go mod tidy
 go mod vendor
 ```
 
-(Go proxy 가 아직 `0hakxx/norma@v0.4.3` 를 캐시하지 않은 상태라면, 저장소가 public 인지 확인하고
-`https://proxy.golang.org/github.com/0hakxx/norma/@v/v0.4.3.info` 를 한 번 조회하면 proxy 가 캐시한다.)
+### Docker Hub 접근이 끊긴 상태 (상위와 무관)
+```bash
+# 1) base-images.tar.gz 를 미리 다운로드해 뒀다면:
+docker load < dist/base-images.tar.gz
+bash scripts/docker-build.sh   # 로컬 이미지 그대로 사용
+
+# 2) 또는 GHCR 미러에 접근 가능하면:
+docker login ghcr.io -u <id>   # mirror 가 private 이면 로그인 필요
+USE_MIRROR=1 bash scripts/docker-build.sh
+```
+
+### npm registry 접근이 끊긴 상태 (상위와 무관)
+```bash
+tar -xzf dist/npm-cache.tar.gz -C /tmp
+(cd web && npm ci --offline --cache /tmp/npm-cache)
+```
+
+### 완전 air-gap (모든 공개 인프라 접근 불가)
+`dist/` 아래 세 아카이브가 사전에 준비되어 있어야 한다.
+```bash
+docker load < dist/prtseek-image-prtseek-v0.1.0.tar.gz   # 완성 이미지 그대로 로드
+docker run -d --name prtseek -p 8787:8787 prtseek-v0.1.0
+# 이미지 재빌드가 필요하면 base-images.tar.gz + npm-cache.tar.gz 를 조합한 뒤 USE_MIRROR=1 로 빌드.
+```
+
+### 모듈 업데이트가 필요한 경우 (상위 살아 있을 때만)
+Dockerfile 의 `GOPROXY=off` 가 모듈 다운로드를 막는다. 일회성으로 덮어쓴다:
+```bash
+docker build --build-arg GOPROXY='https://proxy.golang.org,direct' -t prtseek:refresh .
+go mod tidy && go mod vendor   # 호스트에서 vendor/ 재생성
+```
+
+## 3.6 Go proxy 캐시 사전 준비 (선택)
+
+`0hakxx/norma@v0.4.3` 는 저장소가 **private 이던 동안** Go proxy 에 색인되지 못했을 수 있다.
+public 전환 후 한 번 요청하면 영구 캐시된다:
+```bash
+curl -sI https://proxy.golang.org/github.com/0hakxx/norma/@v/v0.4.3.info
+curl -sI https://proxy.golang.org/github.com/0hakxx/norma/@v/v0.4.3.mod
+curl -sO https://proxy.golang.org/github.com/0hakxx/norma/@v/v0.4.3.zip
+```
+이렇게 한 번 트리거해 두면, 이후 `replace` 지시어로 미러를 쓸 때 추가 세팅이 필요 없다.
 
 GitHub Actions `.github/workflows/docker-publish.yml` 은 `master`·`prtseek-v*` 태그 푸시 때
 `ghcr.io/<owner>/prtseek` 로 이미지를 자동 푸시한다. 수동 실행 시 `mirror_base` 를 켜면 베이스 이미지도 미러링한다.

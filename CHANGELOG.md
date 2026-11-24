@@ -2,11 +2,13 @@
 
 사용자가 체감할 수 있는 개선, 수정, 사용상 변화를 날짜 역순으로 기록한다. 과거 항목은 저장소 커밋을 기준으로 정리했으며, 날짜는 업데이트 기록일 뿐 별도 설치 패키지가 배포되었다는 뜻은 아니다.
 
-## 2026-11-24 — 상위 의존성 완전 독립화 (vendor 커밋 + norma 미러)
+## 2026-11-24 — 상위 의존성 완전 독립화 (vendor 커밋 + norma 미러 + Dockerfile 오프라인화)
 
-- `vendor/` 를 저장소에 커밋해 Go 의존성 전체(253 MB, `github.com/Autumn-27/norma v0.4.3` 포함 모든 외부 패키지 소스)를 로컬에 상주시켰다. 상위 저장소가 사라져도 `go build -mod=vendor ./...` 로 네트워크 없이 바로 빌드·테스트 가능.
-- `github.com/Autumn-27/norma` 를 `github.com/0hakxx/norma` 로 미러 푸시(mirror-clone 으로 전체 태그와 브랜치 이관, 공개 저장소). `vendor/` 가 깨졌을 때 `replace` 지시어로 즉시 복구할 수 있도록 `docs/MAINTAINING.md` 3.5 절에 절차 추가.
-- `scripts/backup-deps.sh` 는 `vendor` 가 상주하므로 Go 백업을 제거하고 npm 캐시 백업만 담당하도록 정리.
+- `vendor/` 를 저장소에 커밋해 Go 의존성 전체(253 MB, `github.com/Autumn-27/norma v0.4.3` 포함 모든 외부 패키지 소스)를 로컬에 상주. 상위가 삭제돼도 `go build -mod=vendor ./...` 로 네트워크 없이 빌드·테스트 가능.
+- `github.com/Autumn-27/norma` 를 `github.com/0hakxx/norma` 로 미러 푸시 (mirror-clone 으로 전체 태그와 브랜치 1:1 이관, 소스는 한 바이트도 수정하지 않음; v0.4.3 SHA `09c5cab1` 양쪽 일치 확인).
+- **Dockerfile 을 vendor 모드로 전환**: `GOPROXY=off` + `GOFLAGS=-mod=vendor` 를 기본값으로 하드코딩해 `go mod download` 단계를 제거. 이전 버전은 vendor/ 가 복사되기 전에 proxy.golang.org 로 나가 상위 삭제 시 Docker 재빌드가 실패했음 — 이제 완전 오프라인 재빌드 가능. 의존성 업데이트 시엔 `--build-arg GOPROXY=https://proxy.golang.org,direct` 로 덮어쓴다.
+- Docker 베이스 이미지 3 종(`node:22-bookworm-slim`, `golang:1.26.10-bookworm`, `python:3.12-slim-bookworm`)을 `ghcr.io/0hakxx/mirror/*` 로 미러 푸시. prtseek 이미지도 `ghcr.io/0hakxx/prtseek:{prtseek-v0.1.0,latest}` 로 푸시. 오프라인 백업 3 종(dist/base-images, dist/npm-cache, dist/prtseek-image-*)을 `scripts/backup-deps.sh`, `scripts/mirror-base-images.sh`, `SAVE=1 scripts/docker-build.sh` 로 생성.
+- `docs/MAINTAINING.md` 3.5 절을 6 가지 시나리오(상위만 삭제 / vendor 유실 / Docker Hub 끊김 / npm 끊김 / 완전 air-gap / 모듈 업데이트)별 복구 명령으로 재구성. 3.6 절에 Go proxy 사전 캐시 트리거 추가.
 
 ## 2026-11-21 — 시스템 프롬프트 접두부 안정성
 
